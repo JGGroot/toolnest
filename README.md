@@ -4,6 +4,8 @@ Static CNC foam layout software for toolboxes. Deployment and moving projects fr
 
 ## Tool dragging
 
+Trace selection has a separate highlight for the selected tool body, including when cutting contours merge. Canvas, labels, grips and list rows select the same tool; selecting a grip selects its parent. List rows remain stable during redraws so field blur or a worker result cannot swallow a click. Retracing maps the current selection to the new contour order rather than restoring the selection from when the job began. Selection alone does not move points or create undo entries. Run `npm run test:selection` for desktop/laptop/phone clicks, focused size fields, merged contours, parent grips and delayed threshold results.
+
 Trace tool bodies, grips, labels and isolated cut contours move together during a drag. Tool hit areas follow each source silhouette so merged cut contours do not select unrelated tools. When outlines are merged, the drag shows individual tool bodies and recomputes the combined cutting contour on release. Foam placement moves the tool and its depth regions with an SVG transform once per animation frame. Clearance checks run in a coalesced background worker while moving; release always performs the authoritative layout check before enabling export. Without workers, placement remains interactive and clearance is checked on release.
 
 Gestures retain their initial screen-to-millimetre transform, commit the final release position, and create one undo step. Pointer capture supports dropping outside the canvas; Escape or window focus loss cancels an unfinished edit. Touch drag-to-pinch conversion rolls back the accidental tool move.

@@ -212,3 +212,5 @@ body.canvas-focus .mobile-nav{display:none!important}
 .canvas-area,.foam-stage,.stock-photo-stage{user-select:none;-webkit-user-select:none}
 #editor .raw-path,#editor .tool-path{cursor:grab}
 #editor .tool-hit{pointer-events:all;cursor:grab}
+#editor .tool-selection{fill:#d9a57d;fill-opacity:.16;stroke:#c66c40;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:none}
+#editor .tool-label{pointer-events:all;cursor:pointer}

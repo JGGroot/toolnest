@@ -6,6 +6,7 @@
     "test": "node tests/vision.test.mjs && node tests/segmentation.test.mjs && node tests/preview-model.test.mjs && node tests/foam.test.mjs && node tests/outline-camera.test.mjs && node tests/stock-stl.test.mjs",
     "start": "python -m http.server 3000 --directory dist",
     "test:drag": "node tests/desktop-drag.mjs",
+    "test:selection": "node tests/trace-selection.mjs",
     "test:camera": "node tests/make-camera-fixture.mjs && node tests/camera-browser.mjs"
   }
 }
