@@ -4,7 +4,12 @@ Toolnest is a static, browser-local app. GitHub Pages serves `dist/` over HTTPS;
 
 ## Deployment
 
-In repository Settings → Pages, select **GitHub Actions** as the source. A push to `main` runs the engine tests, uploads only `dist/`, then deploys that same artifact. **Actions → Deploy Toolnest to GitHub Pages → Run workflow** can redeploy manually. The deployment URL is shown in the `github-pages` environment and the completed workflow.
+The repository supports both Pages deployment modes:
+
+- **Deploy from a branch → main → / (root)** publishes the repository. The root `index.html` opens the app in `dist/`, and `.nojekyll` disables Jekyll processing. GitHub's built-in Pages workflow handles publication; our workflow runs the engine tests and skips its separate deployment.
+- **GitHub Actions** runs the engine tests, uploads only `dist/`, then deploys that same artifact. **Actions → Deploy Toolnest to GitHub Pages → Run workflow** can redeploy manually. The deployment URL is shown in the `github-pages` environment and the completed workflow. This mode gates publication on passing tests and excludes the source/test documents from the hosted files.
+
+Both modes open the same application at https://jggroot.github.io/toolnest/. Only one deployment mode is active at a time. No further setting changes are needed when using branch publication.
 
 Keep module imports, workers, fonts and other assets relative to their containing files. Project Pages runs under a repository subdirectory, not the domain root. No custom domain or SPA fallback is required.
 
@@ -22,4 +27,4 @@ Run `npm start`, then open http://localhost:3000. Run `npm test` before committi
 
 The photo/layout browser check accepts `TOOLNEST_URL` to test a repository subdirectory or deployed URL and `TOOLNEST_VIEWPORT` to limit the run to 390, 820 or 1440 CSS pixels. For example: `TOOLNEST_URL=http://localhost:3000/toolnest/ TOOLNEST_VIEWPORT=390 node tests/stock-photo-browser.mjs`. Use a test browser profile; the check creates synthetic projects, downloads exports and writes browser storage.
 
-Only `dist/` is uploaded to Pages. The GitHub source repository excludes old hosting identity, credentials, user photos, saved projects and local storage. Preserve the license notices in `dist/vendor/` and `dist/fonts/`.
+The GitHub source repository excludes old hosting identity, credentials, user photos, saved projects and local storage. Preserve the license notices in `dist/vendor/` and `dist/fonts/`.
