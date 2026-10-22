@@ -214,3 +214,4 @@ body.canvas-focus .mobile-nav{display:none!important}
 #editor .tool-hit{pointer-events:all;cursor:grab}
 #editor .tool-selection{fill:#d9a57d;fill-opacity:.16;stroke:#c66c40;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:none}
 #editor .tool-label{pointer-events:all;cursor:pointer}
+.canvas-area.is-dragging,.canvas-area.is-dragging *, .foam-stage.is-dragging,.foam-stage.is-dragging *{cursor:grabbing!important}

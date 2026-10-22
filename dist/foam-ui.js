@@ -1,8 +1,9 @@
+import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
 import {createStockPhoto} from './stock-photo-ui.js';
 import {referenceCheck} from './stock-photo-model.js';
 import {storePhoto,loadPhoto,blobDataURL,dataURLBlob} from './media-store.js';
 import {hasCrossings} from './outline.js';
-import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js';
+import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261022-perf1';
 import clip from './vendor/polygon-clipping.js';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg',KEY='toolnest.foam.v1',LIB='toolnest.library.v1';
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -21,19 +22,46 @@ export function createFoamStudio(api){
  try{const raw=localStorage.getItem(LIB);if(raw)library=validLibrary(JSON.parse(raw));}catch{api.toast('Saved tool library could not be restored. Import a library backup.');}
  if(data.tools.length)selected=0;
  const current=()=>data.tools[selected];
- function persist(){clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch{api.toast('Device storage is full. Download a project backup.');}},200);}
- function remember(key){if(key&&editKey===key)return;undo.push(clone(data));if(undo.length>45)undo.shift();redo=[];editKey=key||null;}
+ function persist(){const key=[data.name,data.foam.photo,data.foam.photo?.verification,...layoutKey(),...data.tools.map(t=>t.libraryId)];if(same(key,persistKey))return;persistKey=key;clearTimeout(saveTimer);saveTimer=setTimeout(()=>{try{localStorage.setItem(KEY,JSON.stringify(data));}catch{api.toast('Device storage is full. Download a project backup.');}},200);}
+ function remember(key,before){if(key&&editKey===key)return;undo.push(before||clone(data));if(undo.length>45)undo.shift();redo=[];editKey=key||null;}
  function commit(){editKey=null;}
- function field(id,value){if(document.activeElement!==$(id))$(id).value=value;}
+ function field(id,value){if(document.activeElement!==$(id)&&$(id).value!==String(value))$(id).value=value;}
  function resetView(){viewBox=null;fitRequested=false;if(view==='3d')viewer?.reset();render2D();}
  function fitSelected(){const t=current();if(!t)return;const b=extent(posed(t)),pad=Math.max(8,Math.max(b.maxX-b.minX,b.maxY-b.minY)*.12);viewBox=[b.minX-pad,b.minY-pad,b.maxX-b.minX+2*pad,b.maxY-b.minY+2*pad];fitRequested=true;render2D();schedule3D();}
  function panel(p){host.dataset.panel=p;if(p==='settings'&&matchMedia('(max-width:767px)').matches&&!$('foamDimensionSettings').open)fitSelected();host.querySelectorAll('[data-foam-panel]').forEach(b=>{if(b.dataset.foamPanel===p)b.setAttribute('aria-current','page');else b.removeAttribute('aria-current');});requestAnimationFrame(()=>viewer?.resize());}
  function show(){document.body.dataset.studio='foam';panel('layout');api.setStudio('foam');render();}
  function hide(){if(drag||pinch){discardDrag();render();}document.body.dataset.studio='trace';api.setStudio('trace');}
- function render2D(){activatePhoto();const svg=$('foamLayout'),f=data.foam;svg.setAttribute('viewBox',viewBox?viewBox.join(' '):`${-f.width*.04} ${-f.height*.06} ${f.width*1.08} ${f.height*1.12}`);const e=(name,attrs,text)=>{const n=document.createElementNS(NS,name);for(const [k,v] of Object.entries(attrs))n.setAttribute(k,v);if(text!==undefined)n.textContent=text;return n;};svg.replaceChildren();svg.append(e('rect',{x:0,y:0,width:f.width,height:f.height,rx:1,fill:'#fafbf6',stroke:'#bac6ac','stroke-width':.6}));if(photoURL&&f.photo&&$('foamPhotoVisible').checked)svg.append(e('image',{href:photoURL,width:f.photo.width,height:f.photo.height,opacity:$('foamPhotoOpacity').value,class:'foam-photo-layer'}));host.classList.toggle('foam-has-photo',!!photoURL&&$('foamPhotoVisible').checked);for(const [i,z] of (f.keepouts||[]).entries()){svg.append(e('path',{d:shapeD(z.shape),class:'foam-keepout','data-keepout':i}));const b=extent(z.shape);svg.append(e('text',{x:b.minX+2,y:b.minY+8,class:'foam-keepout-label'},z.name));}svg.append(e('text',{x:1,y:f.height+10,class:'foam-origin',style:`font-size:${11/Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1))}px`},'0,0 · CAM bottom left'));svg.append(e('rect',{x:f.margin,y:f.margin,width:Math.max(0,f.width-f.margin*2),height:Math.max(0,f.height-f.margin*2),fill:'none',stroke:'#bbc6ad','stroke-width':.4,'stroke-dasharray':'3 3'}));const issues=checkLayout(data.tools,f),bad=new Set(issues.flatMap(i=>i.tools));data.tools.forEach((t,i)=>{const shape=posed(t),b=extent(shape),group=e('g',{'data-instance-group':i});svg.append(group);group.append(e('path',{d:shapeD(shape),class:`foam-layout-tool${i===selected?' selected':''}${bad.has(i)?' invalid':''}`,'data-instance':i}));for(const z of zonesFor(t))group.append(e('path',{d:shapeD(posed(t,z.shape)),class:'foam-layout-zone','fill-rule':'evenodd'}));if(i===selected)group.append(e('text',{x:(b.minX+b.maxX)/2,y:b.maxY+6,'text-anchor':'middle',class:'foam-layout-label',style:`font-size:${12/Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1))}px`},t.name));});if(areaPoints.length)svg.append(e('polyline',{points:areaPoints.map(p=>p.join(',')).join(' '),fill:'#c5724c33',stroke:'#b25a3b','stroke-width':1}));if(measurePoints.length){svg.append(e('polyline',{points:measurePoints.map(p=>p.join(',')).join(' '),fill:'none',class:'foam-measure'}));for(const p of measurePoints)svg.append(e('circle',{cx:p[0],cy:p[1],r:2,fill:'#b65d3c'}));}if(zoneRect)svg.append(e('rect',{x:zoneRect[0],y:zoneRect[1],width:zoneRect[2],height:zoneRect[3],fill:'#d58e5d44',stroke:'#b96337','stroke-width':1,'stroke-dasharray':'2 2'}));return issues;}
+ const scene=new SVGScene($('foamLayout')),shapeCache=new WeakMap(),poseCache=new WeakMap();let cachedLayoutKey=[],cachedIssues=[],persistKey=[];
+ const same=(a,b)=>a.length===b.length&&a.every((v,i)=>v===b[i]);
+ function layoutKey(){const f=data.foam;return [f.width,f.height,f.thickness,f.base,f.margin,f.spacing,f.photo?.width,f.photo?.height,f.photo?.verification?.passed,...(f.keepouts||[]).flatMap(z=>[z.id,z.name,z.shape]),...data.tools.flatMap(t=>[t.id,t.name,t.shape,t.x,t.y,t.rotation,t.depth,...t.zones.flatMap(z=>[z.id,z.shape,z.depth])])];}
+ function issuesForLayout(){const key=layoutKey();if(!same(key,cachedLayoutKey)){cachedIssues=checkLayout(data.tools,data.foam);cachedLayoutKey=key;}return cachedIssues;}
+ function shapeProfile(shape){let p=shapeCache.get(shape);if(!p){p={b:extent(shape),d:shapeD(shape)};shapeCache.set(shape,p);}return p;}
+ function toolProfile(t){const key=[t.shape,t.x,t.y,t.rotation,t.depth,...t.zones.flatMap(z=>[z.shape,z.depth])];let p=poseCache.get(t);if(!p||!same(key,p.key)){const shape=posed(t);p={key,...shapeProfile(shape),zones:zonesFor(t).map(z=>shapeProfile(posed(t,z.shape)))};poseCache.set(t,p);}return p;}
+ function render2D(){
+  activatePhoto();const svg=$('foamLayout'),f=data.foam;attr(svg,'viewBox',viewBox?viewBox.join(' '):`${-f.width*.04} ${-f.height*.06} ${f.width*1.08} ${f.height*1.12}`);
+  const ppu=Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1)),specs=[],add=(key,tag,attrs,text)=>specs.push({key,tag,attrs,text});
+  add('stock','rect',{x:0,y:0,width:f.width,height:f.height,rx:1,fill:'#fafbf6',stroke:'#bac6ac','stroke-width':.6});
+  if(photoURL&&f.photo&&$('foamPhotoVisible').checked)add('photo','image',{href:photoURL,width:f.photo.width,height:f.photo.height,opacity:$('foamPhotoOpacity').value,class:'foam-photo-layer'});
+  host.classList.toggle('foam-has-photo',!!photoURL&&$('foamPhotoVisible').checked);
+  (f.keepouts||[]).forEach((z,i)=>{const p=shapeProfile(z.shape);add('area-'+i,'path',{d:p.d,class:'foam-keepout','data-keepout':i});add('area-label-'+i,'text',{x:p.b.minX+2,y:p.b.minY+8,class:'foam-keepout-label'},z.name);});
+  add('origin','text',{x:1,y:f.height+10,class:'foam-origin',style:`font-size:${11/ppu}px`},'0,0 · CAM bottom left');
+  add('margin','rect',{x:f.margin,y:f.margin,width:Math.max(0,f.width-f.margin*2),height:Math.max(0,f.height-f.margin*2),fill:'none',stroke:'#bbc6ad','stroke-width':.4,'stroke-dasharray':'3 3'});
+  const issues=issuesForLayout(),bad=new Set(issues.flatMap(i=>i.tools));
+  data.tools.forEach((t,i)=>{const p=toolProfile(t),children=[{key:'outline',tag:'path',attrs:{d:p.d,class:`foam-layout-tool${i===selected?' selected':''}${bad.has(i)?' invalid':''}`,'data-instance':i}},...p.zones.map((z,j)=>({key:'zone-'+j,tag:'path',attrs:{d:z.d,class:'foam-layout-zone','fill-rule':'evenodd'}}))];if(i===selected)children.push({key:'label',tag:'text',attrs:{x:(p.b.minX+p.b.maxX)/2,y:p.b.maxY+6,'text-anchor':'middle',class:'foam-layout-label',style:`font-size:${12/ppu}px`},text:t.name});specs.push({key:'tool-'+i,tag:'g',attrs:{'data-instance-group':i},children});});
+  if(areaPoints.length)add('area-preview','polyline',{points:areaPoints.map(p=>p.join(',')).join(' '),fill:'#c5724c33',stroke:'#b25a3b','stroke-width':1});
+  if(measurePoints.length){add('measure','polyline',{points:measurePoints.map(p=>p.join(',')).join(' '),fill:'none',class:'foam-measure'});measurePoints.forEach((p,i)=>add('measure-'+i,'circle',{cx:p[0],cy:p[1],r:2,fill:'#b65d3c'}));}
+  if(zoneRect)add('zone-preview','rect',{x:zoneRect[0],y:zoneRect[1],width:zoneRect[2],height:zoneRect[3],fill:'#d58e5d44',stroke:'#b96337','stroke-width':1,'stroke-dasharray':'2 2'});
+  scene.render(specs);return issues;
+ }
+ function renderToolList(){
+  const list=$('foamToolList');if(list.querySelector('.foam-empty'))list.replaceChildren();while(list.children.length>data.tools.length)list.lastElementChild.remove();
+  data.tools.forEach((t,i)=>{let button=list.children[i];if(!button){button=document.createElement('button');button.type='button';button.innerHTML='<svg aria-hidden="true"><path fill-rule="evenodd"/></svg><span><strong></strong><small></small></span>';button.onclick=()=>{selected=+button.dataset.index;drawZone=false;commit();render();panel(matchMedia('(max-width:767px)').matches?'settings':'layout');};list.append(button);}const p=shapeProfile(t.shape),b=p.b;button.dataset.index=i;attr(button,'class','foam-instance'+(i===selected?' selected':''));attr(button,'aria-pressed',String(i===selected));attr(button.querySelector('svg'),'viewBox',`${b.minX-2} ${b.minY-2} ${b.maxX-b.minX+4} ${b.maxY-b.minY+4}`);attr(button.querySelector('path'),'d',p.d);setText(button.querySelector('strong'),t.name);setText(button.querySelector('small'),`${(b.maxX-b.minX).toFixed(1)} × ${(b.maxY-b.minY).toFixed(1)} · ${t.depth} mm deep`);});
+  if(!data.tools.length&&!list.children.length)list.innerHTML='<div class="foam-empty">Add tools from a photo or your library.</div>';
+ }
+
  async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
  function schedule3D(){if(pending3d)return;pending3d=true;requestAnimationFrame(()=>{pending3d=false;update3D();});}
- function render(){renderStockControls();const t=current(),f=data.foam,issues=render2D();field('foamProjectName',data.name);for(const [id,key] of Object.entries({foamWidth:'width',foamHeight:'height',foamThickness:'thickness',foamBase:'base',foamMargin:'margin',foamSpacing:'spacing'}))field(id,f[key]);$('foamToolCount').textContent=data.tools.length;$('foamToolSettings').hidden=!t;const list=$('foamToolList');list.replaceChildren();data.tools.forEach((tool,i)=>{const b=extent(tool.shape),button=document.createElement('button');button.className='foam-instance';button.setAttribute('aria-pressed',String(i===selected));button.innerHTML=`<svg viewBox="${b.minX-2} ${b.minY-2} ${b.maxX-b.minX+4} ${b.maxY-b.minY+4}" aria-hidden="true"><path fill-rule="evenodd" d="${shapeD(tool.shape)}"/></svg><span><strong>${escape(tool.name)}</strong><small>${(b.maxX-b.minX).toFixed(1)} × ${(b.maxY-b.minY).toFixed(1)} · ${tool.depth} mm deep</small></span>`;button.onclick=()=>{selected=i;drawZone=false;render();panel(matchMedia('(max-width:767px)').matches?'settings':'layout');};list.append(button);});if(!data.tools.length)list.innerHTML='<div class="foam-empty">Add tools from a photo or your library.</div>';
+ function render(){renderStockControls();const t=current(),f=data.foam,issues=render2D();field('foamProjectName',data.name);for(const [id,key] of Object.entries({foamWidth:'width',foamHeight:'height',foamThickness:'thickness',foamBase:'base',foamMargin:'margin',foamSpacing:'spacing'}))field(id,f[key]);$('foamToolCount').textContent=data.tools.length;$('foamToolSettings').hidden=!t;renderToolList();
  if(t){field('foamToolName',t.name);field('foamDepth',t.depth);field('foamDepthRange',t.depth);$('foamDepth').max=$('foamDepthRange').max=Math.max(.1,f.thickness-f.base);field('foamX',+t.x.toFixed(1));field('foamY',+t.y.toFixed(1));field('foamRotation',t.rotation);$('foamZones').replaceChildren();t.zones.forEach((z,i)=>{const row=document.createElement('div');row.className='foam-zone';const label=document.createElement('label');label.textContent=`Region ${i+1} · mm `;const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min=t.depth+.1;input.max=f.thickness-f.base;input.step='.1';input.value=z.depth;input.setAttribute('aria-label',`Region ${i+1} depth`);input.oninput=()=>{const n=+input.value;if(n<=t.depth||n>f.thickness-f.base)return;remember('zone-'+z.id);z.depth=n;renderGeometry();};input.onchange=input.onblur=commit;label.append(input);const remove=document.createElement('button');remove.className='text-btn danger';remove.textContent='Remove ×';remove.onclick=()=>{remember();t.zones.splice(i,1);render();};row.append(label,remove);$('foamZones').append(row);});}
  $('foamFitTool').disabled=!t;$('foamUndo').disabled=!undo.length;$('foamRedo').disabled=!redo.length;$('foamAddZone').setAttribute('aria-pressed',String(drawZone));$('foamAddZone').textContent=drawZone?'Cancel region':'＋ Draw depth region';$('foamDimensions').textContent=`${f.width} × ${f.height} × ${f.thickness} mm`;$('foamSummary').textContent=`${data.tools.length} tool${data.tools.length===1?'':'s'}`;$('foamStatus').dataset.error=String(!!issues.length);$('foamStatus').textContent=issues.length?[...new Set(issues.map(i=>i.message))].slice(0,4).join('\n'):data.tools.length?'Layout ready':'No tools in layout';$('foamExport').disabled=!data.tools.length||!!issues.length;$('foamDepthCSV').disabled=!data.tools.length;$('foamPreviewHint').textContent=areaMode==='polygon'?'Tap points around a no-cut area, then Finish area':areaMode==='rectangle'?'Drag a rectangle over an existing pocket or unusable area':areaMode==='measure'?'Tap both ends of a measured reference':drawZone?'Drag a rectangle across the selected pocket':view==='3d'?'Drag to orbit · Pinch to zoom':'Drag tools · Pinch to zoom';persist();schedule3D();}
  function renderGeometry(){const issues=render2D();$('foamStatus').dataset.error=String(!!issues.length);$('foamStatus').textContent=issues.length?issues.slice(0,4).map(i=>i.message).join('\n'):'Layout ready';$('foamExport').disabled=!data.tools.length||!!issues.length;persist();schedule3D();}
@@ -62,18 +90,18 @@ export function createFoamStudio(api){
  function pumpDragCheck(){
   if(!layoutQueued||layoutBusy||!drag?.changed||layoutWorkerFailed)return;
   if(!layoutWorker){try{
-   layoutWorker=new Worker(new URL('./layout-worker.js',import.meta.url),{type:'module'});
+   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261022-perf1',import.meta.url),{type:'module'});
    layoutWorker.onmessage=({data:result})=>{layoutBusy=false;if(result.id===layoutRevision&&drag?.changed&&!result.error)showDragIssues(result.issues);pumpDragCheck();};
    layoutWorker.onerror=()=>{layoutWorker.terminate();layoutWorker=null;layoutBusy=false;layoutQueued=false;layoutWorkerFailed=true;};
   }catch{layoutWorkerFailed=true;return;}}
-  layoutQueued=false;layoutBusy=true;layoutWorker.postMessage({id:layoutRevision,tools:data.tools,foam:data.foam});
+  layoutQueued=false;layoutBusy=true;if(!drag.layoutReady){drag.layoutReady=true;layoutWorker.postMessage({id:layoutRevision,tools:data.tools,foam:data.foam});}else if(drag.type==='keepout')layoutWorker.postMessage({id:layoutRevision,keepout:drag.keepout,shape:data.foam.keepouts[drag.keepout].shape});else{const t=data.tools[drag.index];layoutWorker.postMessage({id:layoutRevision,index:drag.index,x:t.x,y:t.y});}
  }
  function checkDrag(){
   // Export remains blocked until the final authoritative check on release.
   $('foamExport').disabled=true;$('foamStatus').dataset.error='false';
   $('foamStatus').textContent='Moving… · release to finish';layoutRevision++;layoutQueued=true;pumpDragCheck();
  }
- function stopDragFrame(){if(dragFrame)cancelAnimationFrame(dragFrame);dragFrame=0;latestPointer=null;layoutRevision++;layoutQueued=false;}
+ function stopDragFrame(){$('foamStage').classList.remove('is-dragging');if(dragFrame)cancelAnimationFrame(dragFrame);dragFrame=0;latestPointer=null;layoutRevision++;layoutQueued=false;}
  function restoreDrag(d){data=d.before;undo=d.undoBefore;redo=d.redoBefore;}
  function discardDrag(rollback=true){const d=drag;drag=null;stopDragFrame();pinch=null;zoneRect=null;if(rollback&&d?.changed)restoreDrag(d);for(const id of pointers.keys())if(svg.hasPointerCapture(id))svg.releasePointerCapture(id);pointers.clear();}
  function flushDrag(){
@@ -93,7 +121,7 @@ export function createFoamStudio(api){
    viewBox=[drag.viewBox[0]-dx,drag.viewBox[1]-dy,...drag.viewBox.slice(2)];svg.setAttribute('viewBox',viewBox.join(' '));return;
   }
   if(!drag.moved&&!drag.changed)return;
-  if(!drag.changed){remember();drag.changed=true;}
+  if(!drag.changed){$('foamStage').classList.add('is-dragging');drag.before=clone(data);remember(undefined,drag.before);drag.changed=true;}
   if(drag.type==='keepout'){
    const b=extent(drag.keepoutOriginal),tx=Math.max(-b.minX,Math.min(data.foam.width-b.maxX,dx)),ty=Math.max(-b.minY,Math.min(data.foam.height-b.maxY,dy));
    data.foam.keepouts[drag.keepout].shape=drag.keepoutOriginal.map(p=>p.map(r=>r.map(([x,y])=>[x+tx,y+ty])));
@@ -110,7 +138,7 @@ export function createFoamStudio(api){
   if(pointers.size>2)return;
   const index=e.target.closest('[data-instance]')?.dataset.instance,area=e.target.closest('[data-keepout]')?.dataset.keepout;
   if(index!==undefined&&!drawZone&&!areaMode)selected=+index;
-  const t=current();drag={before:clone(data),undoBefore:undo.slice(),redoBefore:redo.slice(),type:areaMode==='rectangle'?'keepout-rectangle':areaMode==='polygon'?'keepout-point':areaMode==='measure'?'measure':drawZone&&t?'zone':area!==undefined?'keepout':index!==undefined?'tool':'pan',keepout:area===undefined?-1:+area,keepoutOriginal:area===undefined?null:clone(data.foam.keepouts[+area].shape),index:selected,original:t?{x:t.x,y:t.y}:null,client:{x:e.clientX,y:e.clientY},changed:false,moved:false};
+  const t=current();drag={before:null,undoBefore:undo.slice(),redoBefore:redo.slice(),type:areaMode==='rectangle'?'keepout-rectangle':areaMode==='polygon'?'keepout-point':areaMode==='measure'?'measure':drawZone&&t?'zone':area!==undefined?'keepout':index!==undefined?'tool':'pan',keepout:area===undefined?-1:+area,keepoutOriginal:area===undefined?null:clone(data.foam.keepouts[+area].shape),index:selected,original:t?{x:t.x,y:t.y}:null,client:{x:e.clientX,y:e.clientY},changed:false,moved:false};
   render();drag.inverse=svg.getScreenCTM().inverse();drag.start=pt(e,drag.inverse);const vb=svg.viewBox.baseVal;drag.viewBox=[vb.x,vb.y,vb.width,vb.height];
   drag.group=svg.querySelector(`[data-instance-group="${selected}"]`);drag.areaPath=svg.querySelector(`[data-keepout="${drag.keepout}"]`);drag.areaLabel=drag.areaPath?.nextElementSibling;e.preventDefault();
  });
@@ -126,6 +154,7 @@ export function createFoamStudio(api){
   if(pinch){if(pointers.size<2)pinch=null;drag=null;stopDragFrame();render2D();return;}
   if(!drag)return;const d=drag;drag=null;stopDragFrame();
   if(cancelled){if(d.changed)restoreDrag(d);zoneRect=null;render();return;}
+  if(!d.changed&&d.type==='tool')return;
   if(d.type==='keepout-rectangle'&&zoneRect){const [x,y,w,h]=zoneRect;if(w>=1&&h>=1)addKeepout(rectShape(x,y,w,h));zoneRect=null;areaMode=null;}
   if(d.type==='keepout-point'&&!d.moved){areaPoints.push(d.start);render();return;}
   if(d.type==='measure'&&!d.moved){measurePoints.push(d.start);if(measurePoints.length===2){areaMode=null;showReference();}}
