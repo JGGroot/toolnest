@@ -108,7 +108,15 @@ export function snapToEdges(poly,field,scale,{inward=3.5,outward=2,step=.4,minEd
  // is filtered over a few millimetres; shape detail stays in the base outline. Points
  // that disagree with the local median are outliers, not features.
  const span=Math.max(2,Math.round(1.8/step)),median=chosen.map((_,i)=>{const w=[];for(let k=-span;k<=span;k++)w.push(chosen[(i+k+n)%n]);return w.sort((a,b)=>a-b)[span];}),kept=chosen.map((v,i)=>Math.abs(v-median[i])>.3?median[i]:v),sigma=1/step,reach=Math.ceil(2.5*sigma);
- const result=pts.map((p,i)=>{let t=0,c=0;for(let k=-reach;k<=reach;k++){const g=Math.exp(-k*k/(2*sigma*sigma));t+=kept[(i+k+n)%n]*g;c+=g;}const d=t/c;return [p[0]+normals[i][0]*d,p[1]+normals[i][1]*d];});
+ const smooth=chosen.map((_,i)=>{let t=0,c=0;for(let k=-reach;k<=reach;k++){const g=Math.exp(-k*k/(2*sigma*sigma));t+=kept[(i+k+n)%n]*g;c+=g;}return t/c;});
+ // A pocket must enclose the tool. An edge position is the middle of a blurred
+ // transition, so walk each point out until the photo just beyond it is paper:
+ // not tool-dark (a light shadow passes) and not brighter than paper (chrome).
+ // Then keep the push smooth
+ // without letting it shrink.
+ const lin=(i,a,b)=>{const v=profiles[i];let t=0,c=0;for(let k=Math.max(0,at(a));k<=Math.min(size-1,at(b));k++){t+=polarity*v[k];c++;}return c?t/c:NaN;},low=(i,a,b)=>{const v=profiles[i];let m=Infinity;for(let k=Math.max(0,at(a));k<=Math.min(size-1,at(b));k++)m=Math.min(m,polarity*v[k]);return m;},high=(i,a,b)=>{const v=profiles[i];let m=-Infinity;for(let k=Math.max(0,at(a));k<=Math.min(size-1,at(b));k++)m=Math.max(m,polarity*v[k]);return m;},toolLin=polarity*(Math.exp(polarity*dark)-10),paperLin=polarity*(Math.exp(polarity*usual)-10);
+ const push=smooth.map((d0,i)=>{const paper=lin(i,outward+.1,outward+.6),tool=low(i,d0-1.5,d0-.2),limit=tool+.5*(paper-tool);if(!(paper-tool>(paperLin-toolLin)*.25))return 0;let d=d0;while(d<Math.min(outward+.4,d0+1.6)&&(low(i,d,d+.5)<limit||polarity>0&&high(i,d+.1,d+.5)>paper*1.06+3))d+=dt/scale;return d-d0;});
+ const held=push.map((_,i)=>{let m=0;for(let k=-3;k<=3;k++)m=Math.max(m,push[(i+k+n)%n]);return m;}),result=pts.map((p,i)=>{let t=0,c=0;for(let k=-2;k<=2;k++){const g=Math.exp(-k*k/2);t+=held[(i+k+n)%n]*g;c+=g;}const d=smooth[i]+t/c;return [p[0]+normals[i][0]*d,p[1]+normals[i][1]*d];});
  return untangle(result,pts)??poly;
 }
 // Converging normals at concave corners can fold small loops into the ring. Keep
