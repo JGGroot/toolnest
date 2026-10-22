@@ -1,2 +1,2 @@
-import {buildSTL} from './foam-stl.js?v=20261022-edges3';
+import {buildSTL} from './foam-stl.js?v=20261022-snap1';
 self.onmessage=e=>{try{const buffer=buildSTL(e.data);self.postMessage({buffer},[buffer]);}catch(e){self.postMessage({error:e.message});}};

@@ -1,6 +1,7 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261022-edges3';
-import {fairOutline,cleanRing,roundCorners} from './outline.js?v=20261022-edges3';
+import {vectorCutPaths} from './cut-geometry.js?v=20261022-snap1';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261022-snap1';
 import {edgeSilhouette} from './segmentation.js';
+import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
 export const CODES=[
@@ -55,7 +56,73 @@ export function smoothOutline(poly,passes=1,mode='round',options={}){
  let p=poly;for(let k=0;k<passes;k++){if(p.length>2048)p=simplify(p,.035);const out=[];for(let i=0;i<p.length;i++){const a=p[(i+p.length-1)%p.length],b=p[i],c=p[(i+1)%p.length],u=[b[0]-a[0],b[1]-a[1]],v=[c[0]-b[0],c[1]-b[1]],cos=(u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1);if(cos<.57){out.push(b);continue;}out.push([b[0]*.75+a[0]*.25,b[1]*.75+a[1]*.25],[b[0]*.75+c[0]*.25,b[1]*.75+c[1]*.25]);}p=out;}return p;
 }
 export function contours(mask,w,h,scale=1,minArea=12){const edges=new Map(),key=(x,y)=>y*(w+1)+x;function edge(x,y,u,v){const k=key(x,y);if(!edges.has(k))edges.set(k,[]);edges.get(k).push(key(u,v));}for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=y*w+x;if(!mask[p])continue;if(!mask[p-w])edge(x,y,x+1,y);if(!mask[p+1])edge(x+1,y,x+1,y+1);if(!mask[p+w])edge(x+1,y+1,x,y+1);if(!mask[p-1])edge(x,y+1,x,y);}const paths=[];while(edges.size){const start=edges.keys().next().value;let k=start;const p=[];let guard=0;do{p.push([(k%(w+1))/scale,Math.floor(k/(w+1))/scale]);const next=edges.get(k);if(!next)break;const n=next.pop();if(!next.length)edges.delete(k);k=n;}while(k!==start&&guard++<w*h*4);if(k===start&&p.length>3&&polygonArea(p)>minArea)paths.push(simplify(p,.15));}return paths.sort((a,b)=>polygonArea(b)-polygonArea(a));}
-export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){if(method==='edges'){const [pw,ph]=PAPERS[paper],s=image.width/pw,roi={left:Math.ceil(33*s),right:Math.floor((pw-33)*s),top:Math.ceil(33*s),bottom:Math.floor((ph-33)*s)},mask=edgeSilhouette(image,roi,threshold,{...options,pixelsPerMm:s});return contours(mask,image.width,image.height,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&b.minX>33.5&&b.maxX<pw-33.5&&b.minY>33.5&&b.maxY<ph-33.5;});}const [pw,ph]=PAPERS[paper],s=image.width/pw,g=gray(image),mask=new Uint8Array(g.length);for(let y=0;y<image.height;y++)for(let x=0;x<image.width;x++){if(x/s<33||x/s>pw-33||y/s<33||y/s>ph-33)continue;mask[y*image.width+x]=g[y*image.width+x]<threshold?1:0;}return contours(mask,image.width,image.height,s,minArea);}
+// Edge-aware outline refinement. Mask boundaries sit on pixel cracks, slightly
+// outside the object after gap closing, and follow a cast shadow or a specular
+// highlight whenever one breaks the tool edge. Each sample looks along its normal
+// for edges of the contour's own polarity in log brightness (a shadow scales
+// illumination, so its edge is weaker than the tool's). Deep inward moves need a
+// shadow-like band: darker than the background, lighter than the tool. A
+// highlight looks like background and is never cut away. Dynamic programming
+// around the closed ring picks one continuous edge instead of hopping between the
+// tool and shadow edges, then sub-pixel offsets are lightly median filtered.
+function blurGray(image){const {width:w,height:h,data}=image,n=w*h,g=new Float32Array(n),t=new Float32Array(n),o=new Float32Array(n),k=[.0625,.25,.375,.25,.0625];for(let i=0;i<n;i++)g[i]=data[i*4]*.299+data[i*4+1]*.587+data[i*4+2]*.114;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let j=-2;j<=2;j++)v+=g[y*w+Math.max(0,Math.min(w-1,x+j))]*k[j+2];t[y*w+x]=v;}
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let j=-2;j<=2;j++)v+=t[Math.max(0,Math.min(h-1,y+j))*w+x]*k[j+2];o[y*w+x]=v;}return {g:o,w,h};}
+function sample({g,w,h},x,y){x=Math.max(0,Math.min(w-1.001,x-.5));y=Math.max(0,Math.min(h-1.001,y-.5));const i=Math.floor(x),j=Math.floor(y),fx=x-i,fy=y-j,p=j*w+i;return (g[p]*(1-fx)+g[p+1]*fx)*(1-fy)+(g[p+w]*(1-fx)+g[p+w+1]*fx)*fy;}
+export function snapToEdges(poly,field,scale,{inward=3.5,outward=2,step=.4,minEdge=.06,shadowRatio=.88,jump=1.2}={}){
+ if(poly.length<8)return poly;const seg=poly.map((a,i)=>Math.hypot(poly[(i+1)%poly.length][0]-a[0],poly[(i+1)%poly.length][1]-a[1])),length=seg.reduce((a,b)=>a+b,0),count=Math.max(16,Math.ceil(length/step)),pts=[];let edge=0,base=0;
+ for(let i=0;i<count;i++){const d=i*length/count;while(edge<poly.length-1&&base+seg[edge]<d)base+=seg[edge++];const t=(d-base)/(seg[edge]||1),a=poly[edge],b=poly[(edge+1)%poly.length];pts.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
+ // Measure from a gently smoothed base so pixel-staircase corners do not tilt normals.
+ {const raw=pts.map(p=>[...p]),r=8;for(let i=0;i<raw.length;i++){let x=0,y=0,t=0;for(let j=-r;j<=r;j++){const q=raw[(i+j+raw.length)%raw.length],g=Math.exp(-j*j/18);x+=q[0]*g;y+=q[1]*g;t+=g;}pts[i]=[x/t,y/t];}}
+ // With y pointing down, a positive-area ring has its interior on the left normal [-dy,dx].
+ const n=pts.length,out=polygonArea(pts)>0?-1:1,dt=.25,lo=Math.round(-(inward+.6)*scale/dt),hi=Math.round((outward+.6)*scale/dt),mm=k=>k*dt/scale,at=t=>Math.round(t*scale/dt)-lo,normals=pts.map((_,i)=>{const a=pts[(i+n-2)%n],b=pts[(i+2)%n],dx=b[0]-a[0],dy=b[1]-a[1],l=Math.hypot(dx,dy)||1;return [-dy/l*out,dx/l*out];});
+ const profiles=pts.map((p,i)=>{const x=p[0]*scale,y=p[1]*scale,[nx,ny]=normals[i],v=new Float32Array(hi-lo+1);for(let k=lo;k<=hi;k++)v[k-lo]=sample(field,x+nx*k*dt,y+ny*k*dt);return v;});
+ let polarity=0;for(const v of profiles){for(let k=at(.6);k<=at(1.2);k++)polarity+=v[k];for(let k=at(-1.2);k<=at(-.6);k++)polarity-=v[k];}polarity=Math.sign(polarity)||1;
+ // Two same-polarity edges along one normal enclose a band. A band clearly darker
+ // than the background is a cast shadow (keep the inner edge); one almost as bright
+ // as the background but brighter than the tool is a highlight (keep the outer edge).
+ const size=hi-lo+1,L=new Float32Array(size),v=new Float32Array(size),sum=new Float64Array(size+1),mean=(_,a,b)=>{const i=Math.max(0,at(a)),j=Math.min(size-1,at(b));return j>=i?(sum[j+1]-sum[i])/(j-i+1):NaN;};
+ // Typical paper level beyond the samples and tool level inside them. A sample whose
+ // far end is much darker is looking across a notch at another part of the tool.
+ const far=profiles.map(raw=>{let t=0,c=0;for(let k=at(outward+.1);k<=Math.min(raw.length-1,at(outward+.6));k++){t+=polarity*Math.log(10+raw[k]);c++;}return t/c;}).sort((a,b)=>a-b),usual=far[Math.floor(far.length*.75)],dark=profiles.map(raw=>{let m=Infinity;for(let k=0;k<=at(-1);k++)m=Math.min(m,polarity*Math.log(10+raw[k]));return m;}).sort((a,b)=>a-b)[Math.floor(far.length/2)];
+ const candidates=profiles.map(raw=>{for(let k=0;k<size;k++){v[k]=raw[k]*polarity;L[k]=polarity*Math.log(10+raw[k]);sum[k+1]=sum[k]+L[k];}const D=k=>(v[Math.min(v.length-1,k+4)]-v[Math.max(0,k-4)])/(8*dt),half=Math.max(1,Math.round(.5*scale/dt)),peaks=[];let bg=-Infinity;for(let t=0;t<=outward+.35;t+=.1)bg=Math.max(bg,mean(L,t,t+.25));
+  for(let k=2;k<v.length-2;k++){const t=mm(k+lo);if(t<-inward||t>outward)continue;const d=D(k),dl=D(k-1),dr=D(k+1);if(d<=0||d<dl||d<=dr||d<.5)continue;const contrast=L[Math.min(L.length-1,k+half)]-L[Math.max(0,k-half)];if(contrast<minEdge)continue;
+   const den=dl-2*d+dr,shift=den<0?Math.max(-.5,Math.min(.5,.5*(dl-dr)/den)):0;peaks.push({t:mm(k+lo+shift),s:contrast});}
+  const kind=(a,b)=>{if(b.t-a.t<.8)return '';const band=mean(L,a.t+.45,b.t-.25),inner=mean(L,a.t-.5,a.t-.15);if(!(band>inner+.25))return '';return band<bg+Math.log(shadowRatio)?'shadow':band>bg-.12&&mean(L,b.t+.15,b.t+.5)>bg-.06?'highlight':'';};
+  const keep=peaks.filter((p,i)=>!(i>0&&kind(peaks[i-1],p)==='shadow')&&!(i<peaks.length-1&&kind(p,peaks[i+1])==='highlight')&&(p.t>=-.45||p.s>.25&&(()=>{const band=mean(L,p.t+.45,-.25),inner=mean(L,p.t-.5,p.t-.15);return band<bg+Math.log(shadowRatio)&&band>inner+.25;})()));
+  // Scan inward from the paper. Anything clearly brighter than the paper is still
+  // tool (chrome). A soft, mid-grey gap followed inward by paper-bright pixels is a
+  // shadow beside a bright rim (or paper seen through a slot): the outline belongs
+  // outside that bright part. Both rules only ever keep more of the tool.
+  const paper=mean(L,outward+.1,outward+.6);if(polarity>0&&paper>usual-.45&&paper<usual+.1){const W=t=>mean(L,t-.15,t+.15),step=dt/scale;let t=outward,gap=null,low=Infinity,edge=null;
+   const bright=Math.max(paper,usual);for(;t>=-inward;t-=step){const v=W(t);if(gap===null){if(v>bright+.045){edge=t;break;}if(v<paper-.1)gap=t;}else{low=Math.min(low,v);if(v>=paper-.04){let tool=dark;for(let q=-inward;q<t;q+=step)tool=Math.min(tool,W(q));if(low>paper+Math.log(.55)&&low>tool+.25)edge=t;break;}}}
+   if(edge!==null){let peak=edge,level=W(edge);for(let q=edge;q>=Math.max(-inward,edge-1);q-=step)if(W(q)>level){level=W(q);peak=q;}const goal=(level+(gap===null?paper:low))/2;let k=at(peak);while(k<at(outward+.5)&&L[k]>goal)k++;const te=mm(k+lo);if(te<outward+.5){const until=gap===null?te+.1:gap+.3;for(let i=keep.length-1;i>=0;i--)if(keep[i].t<until)keep.splice(i,1);keep.unshift({t:te,s:.6});}}}
+  return keep.length?keep:[{t:0,s:0}];});
+ const strengths=candidates.flatMap(c=>c[0].s?[Math.max(...c.map(e=>e.s))]:[]).sort((a,b)=>a-b);if(strengths.length<n*.5)return poly;const ref=strengths[Math.floor(strengths.length/2)];
+ const unit=c=>-Math.min(1.5,c.s/ref)+(c.t>0?.15*(c.t/outward)**2:0);
+ // Unroll twice around the ring and keep the second lap, so the seam is not special.
+ const N=2*n,cost=[],back=[];cost[0]=candidates[0].map(unit);back[0]=candidates[0].map(()=>0);
+ for(let i=1;i<N;i++){const prev=candidates[(i-1)%n],cur=candidates[i%n],pc=cost[i-1];cost[i]=[];back[i]=[];for(const c of cur){let best=Infinity,from=0;prev.forEach((p,j)=>{const d=Math.abs(c.t-p.t),v=pc[j]+jump*d+2*d*d;if(v<best){best=v;from=j;}});cost[i].push(best+unit(c));back[i].push(from);}}
+ let j=cost[N-1].indexOf(Math.min(...cost[N-1]));const chosen=new Array(n);for(let i=N-1;i>=n;i--){chosen[i-n]=candidates[i%n][j].t;j=back[i][j];}
+ // Shadows, rims and gap-closing bias change slowly along a tool, so the correction
+ // is filtered over a few millimetres; shape detail stays in the base outline. Points
+ // that disagree with the local median are outliers, not features.
+ const span=Math.max(2,Math.round(1.8/step)),median=chosen.map((_,i)=>{const w=[];for(let k=-span;k<=span;k++)w.push(chosen[(i+k+n)%n]);return w.sort((a,b)=>a-b)[span];}),kept=chosen.map((v,i)=>Math.abs(v-median[i])>.3?median[i]:v),sigma=1/step,reach=Math.ceil(2.5*sigma);
+ const result=pts.map((p,i)=>{let t=0,c=0;for(let k=-reach;k<=reach;k++){const g=Math.exp(-k*k/(2*sigma*sigma));t+=kept[(i+k+n)%n]*g;c+=g;}const d=t/c;return [p[0]+normals[i][0]*d,p[1]+normals[i][1]*d];});
+ return untangle(result,pts)??poly;
+}
+// Converging normals at concave corners can fold small loops into the ring. Keep
+// the positively wound region, and reject any repair that changes the area grossly.
+function untangle(ring,reference){
+ ring=simplify(ring,.03);if(!hasCrossings(ring))return Math.sign(polygonArea(ring))===Math.sign(polygonArea(reference))?ring:null;
+ const S=1e5,path=ring.map(([x,y])=>({X:Math.round(x*S),Y:Math.round(y*S)}));if(!Clipper.Clipper.Orientation(path))path.reverse();
+ const parts=Clipper.Clipper.SimplifyPolygon(path,Clipper.PolyFillType.pftPositive).map(p=>p.map(q=>[q.X/S,q.Y/S])).sort((a,b)=>Math.abs(polygonArea(b))-Math.abs(polygonArea(a)));
+ if(!parts.length)return null;let best=parts[0];const ratio=Math.abs(polygonArea(best))/Math.abs(polygonArea(reference));if(ratio<.7||ratio>1.3)return null;
+ if(Math.sign(polygonArea(best))!==Math.sign(polygonArea(reference)))best=best.reverse();best=simplify(best,.03);return hasCrossings(best)?null:best;
+}
+function refinePaths(paths,image,scale,options){if(options.snapEdges===false||!paths.length)return paths;const field=blurGray(image);return paths.map(p=>snapToEdges(p,field,scale)).sort((a,b)=>polygonArea(b)-polygonArea(a));}
+export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){return refinePaths(extractMask(image,paper,threshold,minArea,method,options),image,image.width/PAPERS[paper][0],options);}
+function extractMask(image,paper,threshold,minArea,method,options){if(method==='edges'){const [pw,ph]=PAPERS[paper],s=image.width/pw,roi={left:Math.ceil(33*s),right:Math.floor((pw-33)*s),top:Math.ceil(33*s),bottom:Math.floor((ph-33)*s)},mask=edgeSilhouette(image,roi,threshold,{...options,pixelsPerMm:s});return contours(mask,image.width,image.height,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&b.minX>33.5&&b.maxX<pw-33.5&&b.minY>33.5&&b.maxY<ph-33.5;});}const [pw,ph]=PAPERS[paper],s=image.width/pw,g=gray(image),mask=new Uint8Array(g.length);for(let y=0;y<image.height;y++)for(let x=0;x<image.width;x++){if(x/s<33||x/s>pw-33||y/s<33||y/s>ph-33)continue;mask[y*image.width+x]=g[y*image.width+x]<threshold?1:0;}return contours(mask,image.width,image.height,s,minArea);}
 function inside(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 export function bounds(p){return {minX:Math.min(...p.map(v=>v[0])),maxX:Math.max(...p.map(v=>v[0])),minY:Math.min(...p.map(v=>v[1])),maxY:Math.max(...p.map(v=>v[1]))};}
 // Worker messages clone arrays, so content keys let live grip edits reuse
