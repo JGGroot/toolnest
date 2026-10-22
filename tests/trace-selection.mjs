@@ -1,7 +1,7 @@
 import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';
 import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS} from '../dist/preview-model.js';
-const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,proxy:process.env.TOOLNEST_PROXY?{server:process.env.TOOLNEST_PROXY}:undefined,args:['--no-sandbox']});
+const browser=await chromium.launch({executablePath:process.env.TOOLNEST_BROWSER||'/usr/bin/chromium',headless:true,proxy:process.env.TOOLNEST_PROXY?{server:process.env.TOOLNEST_PROXY}:undefined,args:['--no-sandbox']});
 const base=process.env.TOOLNEST_URL||'http://127.0.0.1:3000';
 const project={...DEFAULT_SETTINGS,format:'toolnest-project',version:2,name:'Selection check',paper:'a4',tools:[{name:'Ratchet',points:[[40,50],[70,50],[70,120],[40,120]]},{name:'Driver',points:[[105,65],[125,65],[125,145],[105,145]]}],fingers:[{tool:1,x:125,y:100,r:8}]};
 async function at(p,x,y){return p.locator('#editor').evaluate((svg,[x,y])=>{const q=new DOMPoint(x,y).matrixTransform(svg.getScreenCTM());return [q.x,q.y];},[x,y]);}

@@ -1,18 +1,18 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js';
-import {createLiveCamera} from './camera-ui.js';
-import {createFoamStudio} from './foam-ui.js?v=20261022-perf1';
-import {validateFoam} from './foam-model.js?v=20261022-perf1';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261022-select1';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js';
+import {prepareCaptureAsync} from './capture-client.js?v=20261022-curves2';
+import {createLiveCamera} from './camera-ui.js?v=20261022-curves2';
+import {createFoamStudio} from './foam-ui.js?v=20261022-curves2';
+import {validateFoam} from './foam-model.js?v=20261022-curves2';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261022-curves2';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261022-curves2';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261022-curves2';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261022-curves2';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261022-select1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
-let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0;const pointers=new Map();
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261022-curves2',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
 function saveDraft(){clearTimeout(draftTimer);draftTimer=setTimeout(()=>{try{localStorage.setItem('toolnest.trace.v2',JSON.stringify(projectData(false)));}catch{}},350);}
@@ -73,7 +73,7 @@ function renderTraceScene(){
   specs.push({key:'markers',tag:'g',attrs:{opacity:.8},html:markerCache.get(state.paper)});add('boundary','rect',{x:33,y:33,width:w-66,height:h-66,rx:1,fill:'none',stroke:'#dce1d2','stroke-width':.2,'stroke-dasharray':'1.2 2'});
   state.tools.forEach((t,i)=>add('raw-'+i,'path',{d:profile(t.points).d,class:'raw-path','data-tool':i,'data-drag-tool':i}));
   const moving=drag?.type==='tool'&&drag.remembered,paths=moving?(drag.merged?[]:drag.paths):cutPaths,owners=moving?drag.owners:cutOwners;
-  paths.forEach((p,i)=>{const index=owners[i]??0;if(!state.tools[index])return;add('cut-'+i,'path',{d:profile(p).d,class:'tool-path'+(index===state.selected&&paths.length>=state.tools.length?' selected':''),'data-tool':index,'data-drag-tool':index,...(moving&&index===drag.index?{transform:`translate(${drag.tx||0} ${drag.ty||0})`}:{})});});
+  paths.forEach((p,i)=>{const index=owners[i]??0;if(!state.tools[index])return;add('cut-'+i,'path',{d:profile(p).d,class:'tool-path'+(index===state.selected&&paths.length>=state.tools.length?' selected':''),'data-tool':index,'data-drag-tool':index});});
   const selected=state.tools[state.selected];if(selected)add('selection','path',{d:profile(selected.points).d,class:'tool-selection','data-selected-tool':state.selected,'data-drag-tool':state.selected,'pointer-events':'none'});
   state.tools.forEach((t,i)=>{const b=profile(t.points).b;add('label-'+i,'text',{x:(b.minX+b.maxX)/2,y:Math.min(h-31,b.maxY+7),'text-anchor':'middle',class:'tool-label','data-tool':i,'data-drag-tool':i},t.name);if(i===state.selected){add('dimension-line','path',{d:`M${b.minX} ${b.maxY+12}h${b.maxX-b.minX}m0 -1v2m${b.minX-b.maxX} -2v2`,fill:'none',stroke:'#d3a17c','stroke-width':.25,'data-drag-tool':i});add('dimension','text',{x:(b.minX+b.maxX)/2,y:b.maxY+17,'text-anchor':'middle',class:'dimension','data-drag-tool':i},`${(b.maxX-b.minX).toFixed(1)} mm`);}});
   state.tools.forEach((t,i)=>add('hit-'+i,'path',{d:profile(t.points).d,class:'tool-hit',fill:'transparent',stroke:'none','data-tool':i,'data-drag-tool':i}));
@@ -82,7 +82,14 @@ function renderTraceScene(){
   if(drag?.remembered&&drag.type!=='tool'&&selected)add('drag-preview','path',{d:profile(selected.points).d,class:'drag-preview'});
   if(mode==='edit'&&selected){let previous=null;selected.points.forEach((p,i)=>{if(i!==activeNode&&previous&&Math.hypot(p[0]-previous[0],p[1]-previous[1])*ppu<(coarse()?44:18))return;previous=p;add('node-hit-'+i,'circle',{cx:p[0],cy:p[1],r:(coarse()?22:8)/ppu,class:'node-hit','data-node':i});add('node-'+i,'circle',{cx:p[0],cy:p[1],r:(i===activeNode?6:3.5)/ppu,class:'node'+(i===activeNode?' active':''),'data-node':i,'stroke-width':1/ppu});});}
  }
- traceScene.render(specs);
+ const groups=new Map(),scene=[];
+ for(const spec of specs){const index=spec.attrs?.['data-drag-tool'];if(index!==undefined){if(!groups.has(index))groups.set(index,[]);groups.get(index).push(spec);}else scene.push(spec);}
+ // Keep groups in tool order even while moving, so hit testing and retained
+ // element identity do not change as the selected profile crosses its peers.
+ const overlayIndex=scene.findIndex(s=>s.key==='grip-preview'||s.key==='drag-preview'||s.key.startsWith('node-'));
+ const overlays=overlayIndex<0?[]:scene.splice(overlayIndex);
+ state.tools.forEach((_,i)=>{if(groups.has(i))scene.push({key:'tool-group-'+i,tag:'g',attrs:{'data-trace-group':i},children:groups.get(i)});});
+ traceScene.render(scene.concat(overlays));
 }
 function render(recompute=true){const svg=$('editor'),[w,h]=PAPERS[state.paper];if(recompute){saveDraft();requestPreview();}renderTraceScene();
 $('toolCount').textContent=state.tools.length;renderToolList();
@@ -92,7 +99,6 @@ renderFingerList();
 const cal=state.cal;$('footerStatus').textContent=previewPending?'Updating preview…':cal?(state.demo?'Sample':'Calibrated'):state.tools.length?'Saved geometry · photo unavailable':'Waiting for photo';$('modeHint').textContent=view==='photo'?'Original photograph · detected markers highlighted':mode==='finger'?'Click an edge to add a finger cutout · Drag a circle to move it':mode==='edit'?'Drag points · Double-click an edge to add · Alt-click a point to remove':'Click a tool to select it · Drag to position · All dimensions in mm';
 for(const [id,m] of [['selectMode','select'],['panMode','pan'],['editMode','edit'],['fingerMode','finger']]){$(id).classList.toggle('selected',mode===m);$(id).setAttribute('aria-pressed',String(mode===m));}
 $('pointActions').hidden=mode!=='edit';$('pointStatus').textContent=insertPoint?'Tap an edge to insert a point':activeNode>=0?`Point ${activeNode+1} selected`:'Tap an outline to select a point';$('insertPoint').setAttribute('aria-pressed',String(insertPoint));$('removePoint').disabled=activeNode<0||!t||t.points.length<=3;
-if(drag?.type==='tool'){drag.renderOffset=[drag.tx||0,drag.ty||0];drag.nodes=[...svg.querySelectorAll(`[data-drag-tool="${drag.index}"]`)].map(node=>({node,transform:node.getAttribute('transform')||''}));}
 if(coarse())$('modeHint').textContent=mode==='edit'?'Tap and drag a point · Add/remove above':mode==='finger'?'Tap an edge to add a grip · Drag grips to move':mode==='pan'?'Drag to pan · Pinch to zoom':'Pinch to zoom · Two fingers to pan';
 }
 function setMode(m){mode=m;insertPoint=false;activeNode=-1;setMobilePanel('workspace');if(view==='photo')setView('outline');render(false);}
@@ -108,7 +114,34 @@ async function decodePhoto(file){
 async function loadFile(file){if(!file)return;if(busy)return toast('Wait for the current photo to finish processing.');const read=++imageReadRevision;if(file.size>25*1024*1024){toast('Choose a photo smaller than 25 MB.');return;}try{const bmp=await decodePhoto(file);if(read!==imageReadRevision){bmp.close();return;}const scale=Math.min(1,1800/Math.max(bmp.width,bmp.height)),c=document.createElement('canvas');c.width=Math.round(bmp.width*scale);c.height=Math.round(bmp.height*scale);const ctx=c.getContext('2d',{willReadFrequently:true});ctx.drawImage(bmp.image,0,0,c.width,c.height);bmp.close();await processImage(ctx.getImageData(0,0,c.width,c.height));}catch(e){toast('Could not read this image. Please use a JPG, PNG, or WEBP photo.');}}
 function nearest(p,poly){let best=null,min=Infinity;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((p[0]-a[0])*dx+(p[1]-a[1])*dy)/(dx*dx+dy*dy||1))),q=[a[0]+dx*t,a[1]+dy*t],d=Math.hypot(p[0]-q[0],p[1]-q[1]);if(d<min){min=d;best={p:q,i,d};}}return best;}
 function svgPoint(e,inverse=$('editor').getScreenCTM().inverse()){const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(inverse);return [p.x,p.y];}
-function queuePaint(){if(!paintFrame)paintFrame=requestAnimationFrame(()=>{paintFrame=0;if(drag?.type==='tool'){const dx=(drag.tx||0)-drag.renderOffset[0],dy=(drag.ty||0)-drag.renderOffset[1];for(const {node,transform} of drag.nodes)node.setAttribute('transform',`translate(${dx} ${dy}) ${transform}`);$('exportBtn').disabled=true;$('saveBtn').disabled=true;}else render(false);});}
+function queuePaint(){if(!paintFrame)paintFrame=requestAnimationFrame(flushTracePaint);}
+function flushTracePaint(){
+ if(paintFrame)cancelAnimationFrame(paintFrame);paintFrame=0;
+ const e=latestTracePointer;latestTracePointer=null;
+ if(!drag||!e){if(!drag)render(false);return;}
+ const firstMove=!drag.remembered;
+ if(firstMove){drag.before=snapshot();remember(drag.before);drag.remembered=true;invalidatePreview();area.classList.add('is-dragging');previewUI();}
+ const p=svgPoint(e,drag.inverse),[w,h]=PAPERS[state.paper],dx=p[0]-drag.start[0],dy=p[1]-drag.start[1];
+ if(drag.type==='tool'){
+  const b=drag.originalBounds;drag.tx=Math.max(2-b.minX,Math.min(w-2-b.maxX,dx));drag.ty=Math.max(2-b.minY,Math.min(h-2-b.maxY,dy));
+  if(!drag.layer){
+   if(drag.merged)render(false);
+   drag.layer=$('editor').querySelector(`[data-trace-group="${drag.index}"]`);drag.layer.classList.add('drag-layer');
+  }
+  // A single composited transform per frame; point arrays remain immutable
+  // throughout the gesture and are translated exactly once on release.
+  drag.layer.style.transform=`translate(${drag.tx}px, ${drag.ty}px)`;
+ }else{
+  if(drag.type==='node'){const points=state.tools[state.selected].points.slice();points[drag.index]=[Math.max(1,Math.min(w-1,drag.original[0]+dx)),Math.max(1,Math.min(h-1,drag.original[1]+dy))];state.tools[state.selected].points=points;}
+  if(drag.type==='finger'){
+   const f=state.fingers[drag.index],tool=state.tools[f.tool];
+   // Constrain to the edge continuously, using the same position for the
+   // circle, boolean preview and committed geometry. No snap on mouse-up.
+   const q=nearest([drag.original.x+dx,drag.original.y+dy],tool.points).p;f.x=q[0];f.y=q[1];
+  }
+  renderTraceScene();requestPreview();
+ }
+}
 function nearestVertex(p,poly){let k=0,d=Infinity;poly.forEach((v,i)=>{const n=Math.hypot(p[0]-v[0],p[1]-v[1]);if(n<d){d=n;k=i;}});return k;}
 function addFingerAt(p){gripPreview=false;let best=null;state.tools.forEach((t,i)=>{const n=nearest(p,t.points);if(!best||n.d<best.d)best={...n,tool:i};});if(!best||best.d>25)return toast('Tap near a tool edge to place the cutout.');const r=Number($('fingerDiameter').value)/2;if(!Number.isFinite(r)||r<3||r>25)return toast('Choose a diameter from 6 to 50 mm.');remember();state.fingers.push({x:best.p[0],y:best.p[1],r,tool:best.tool});state.selected=best.tool;render();}
 function insertPointAt(p){const t=state.tools[state.selected];if(!t)return;const n=nearest(p,t.points);if(n.d>15)return toast('Tap close to the selected outline.');remember();t.points=[...t.points.slice(0,n.i+1),n.p,...t.points.slice(n.i+1)];activeNode=n.i+1;insertPoint=false;render();}
@@ -121,7 +154,7 @@ area.addEventListener('pointerdown',e=>{
  if(tool?.classList.contains('tool-path')){let best=Infinity;state.tools.forEach((t,i)=>{const d=nearest(p,t.points).d;if(d<best){best=d;toolIndex=i;}});}
  if(previewPending&&corrected&&traceKey(state)!==geometryTraceKey){if(selectTool(toolIndex))render(false);e.preventDefault();return;}
  const client={x:e.clientX,y:e.clientY};pointers.set(e.pointerId,client);area.setPointerCapture(e.pointerId);
- if(pointers.size===2){area.classList.remove('is-dragging');const d=drag;drag=null;if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}if(d?.remembered){history=d.oldHistory;Object.assign(state,JSON.parse(d.before));future=d.oldFuture;render();}const r=area.getBoundingClientRect();gesture={points:[...pointers.values()].slice(0,2).map(p=>({...p})),zoom,pan:{...pan},center:{x:r.left+$('sheetWrap').offsetLeft+$('sheetWrap').offsetWidth/2,y:r.top+$('sheetWrap').offsetTop+$('sheetWrap').offsetHeight/2}};e.preventDefault();return;}
+ if(pointers.size===2){area.classList.remove('is-dragging');const d=drag;drag=null;latestTracePointer=null;if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}if(d?.remembered){history=d.oldHistory;Object.assign(state,JSON.parse(d.before));future=d.oldFuture;render();}const r=area.getBoundingClientRect();gesture={points:[...pointers.values()].slice(0,2).map(p=>({...p})),zoom,pan:{...pan},center:{x:r.left+$('sheetWrap').offsetLeft+$('sheetWrap').offsetWidth/2,y:r.top+$('sheetWrap').offsetTop+$('sheetWrap').offsetHeight/2}};e.preventDefault();return;}
  if(pointers.size>2)return;
  const start={start:p,client,inverse:$('editor').getScreenCTM().inverse(),before:null,oldHistory:history.slice(),oldFuture:future.slice(),remembered:false,moved:false};
  if(mode==='pan'||view==='photo'||(zoom>1&&!target.closest('[data-tool],[data-node],[data-finger]')&&mode==='select')){drag={...start,type:'pan',pan:{...pan}};e.preventDefault();return;}
@@ -138,29 +171,23 @@ function movePointer(e){
  if(!pointers.has(e.pointerId))return;pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
  if(gesture&&pointers.size>=2){const next=pinchTransform(gesture.points,[...pointers.values()].slice(0,2),gesture.zoom,gesture.pan,gesture.center);zoom=next.zoom;pan=next.pan;applyZoom();e.preventDefault();return;}
  if(!drag)return;
- const moved=Math.hypot(e.clientX-drag.client.x,e.clientY-drag.client.y);if(moved<5&&!drag.moved)return;drag.moved=true;area.classList.add('is-dragging');
+ const moved=Math.hypot(e.clientX-drag.client.x,e.clientY-drag.client.y);if(moved<5&&!drag.moved)return;drag.moved=true;
  if(drag.type==='pan'){pan={x:drag.pan.x+e.clientX-drag.client.x,y:drag.pan.y+e.clientY-drag.client.y};applyZoom();return;}
  if(drag.type==='addFinger'||drag.type==='insert')return;
- const firstMove=!drag.remembered;if(firstMove){drag.before=snapshot();remember(drag.before);drag.remembered=true;}
- const p=svgPoint(e,drag.inverse),[w,h]=PAPERS[state.paper],dx=p[0]-drag.start[0],dy=p[1]-drag.start[1];
- if(drag.type==='node'){const points=state.tools[state.selected].points.slice();points[drag.index]=[Math.max(1,Math.min(w-1,drag.original[0]+dx)),Math.max(1,Math.min(h-1,drag.original[1]+dy))];state.tools[state.selected].points=points;}
- if(drag.type==='finger'){const f=state.fingers[drag.index];f.x=Math.max(f.r,Math.min(w-f.r,drag.original.x+dx));f.y=Math.max(f.r,Math.min(h-f.r,drag.original.y+dy));}
- if(drag.type==='tool'){const b=drag.originalBounds,tx=Math.max(2-b.minX,Math.min(w-2-b.maxX,dx)),ty=Math.max(2-b.minY,Math.min(h-2-b.maxY,dy));drag.tx=tx;drag.ty=ty;state.tools[drag.index].points=drag.original.map(v=>[v[0]+tx,v[1]+ty]);state.fingers=drag.fingers.map(f=>f.tool===drag.index?{...f,x:f.x+tx,y:f.y+ty}:f);}
- if(drag.type==='tool'&&drag.merged&&firstMove)render(false);
- queuePaint();
+ latestTracePointer={clientX:e.clientX,clientY:e.clientY};queuePaint();
 }
 area.addEventListener('pointermove',movePointer);
 area.addEventListener('dragstart',e=>e.preventDefault());
 function finishPointer(e,cancelled=false){
  area.classList.remove('is-dragging');
- if(!pointers.has(e.pointerId))return;if(!cancelled&&drag)movePointer(e);pointers.delete(e.pointerId);
+ if(!pointers.has(e.pointerId))return;if(!cancelled&&drag){movePointer(e);if(latestTracePointer)flushTracePaint();}pointers.delete(e.pointerId);
  if(gesture){if(pointers.size<2)gesture=null;drag=null;render(false);return;}
- if(!drag)return;const d=drag;drag=null;if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}
+ if(!drag)return;const d=drag;drag=null;latestTracePointer=null;area.classList.remove('is-dragging');if(paintFrame){cancelAnimationFrame(paintFrame);paintFrame=0;}
  if(cancelled){if(d.remembered){history=d.oldHistory;Object.assign(state,JSON.parse(d.before));future=d.oldFuture;render();}return;}
  if(d.type==='addFinger'&&!d.moved){addFingerAt(d.start);return;}
  if(d.type==='insert'&&!d.moved){insertPointAt(d.start);return;}
- if(d.type==='finger'&&d.remembered){const f=state.fingers[d.index],t=state.tools[f.tool];if(t){const n=nearest([f.x,f.y],t.points);f.x=n.p[0];f.y=n.p[1];}}
- if(d.type==='tool'&&d.remembered){cutPaths=d.merged?[]:d.paths.map((p,i)=>d.owners[i]===d.index?p.map(([x,y])=>[x+d.tx,y+d.ty]):p);cutOwners=d.owners;}
+
+ if(d.type==='tool'&&d.remembered){state.tools[d.index].points=d.original.map(([x,y])=>[x+d.tx,y+d.ty]);state.fingers=d.fingers.map(f=>f.tool===d.index?{...f,x:f.x+d.tx,y:f.y+d.ty}:f);cutPaths=d.merged?[]:d.paths.map((p,i)=>d.owners[i]===d.index?p.map(([x,y])=>[x+d.tx,y+d.ty]):p);cutOwners=d.owners;}
  if(!d.remembered&&(d.type==='tool'||d.type==='finger'||d.type==='node'))return;
  render(d.remembered);
 }

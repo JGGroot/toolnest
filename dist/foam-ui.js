@@ -1,9 +1,9 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {createStockPhoto} from './stock-photo-ui.js';
-import {referenceCheck} from './stock-photo-model.js';
+import {createStockPhoto} from './stock-photo-ui.js?v=20261022-curves2';
+import {referenceCheck} from './stock-photo-model.js?v=20261022-curves2';
 import {storePhoto,loadPhoto,blobDataURL,dataURLBlob} from './media-store.js';
-import {hasCrossings} from './outline.js';
-import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261022-perf1';
+import {hasCrossings} from './outline.js?v=20261022-curves2';
+import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261022-curves2';
 import clip from './vendor/polygon-clipping.js';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg',KEY='toolnest.foam.v1',LIB='toolnest.library.v1';
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
@@ -59,7 +59,7 @@ export function createFoamStudio(api){
   if(!data.tools.length&&!list.children.length)list.innerHTML='<div class="foam-empty">Add tools from a photo or your library.</div>';
  }
 
- async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
+ async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js?v=20261022-curves2');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
  function schedule3D(){if(pending3d)return;pending3d=true;requestAnimationFrame(()=>{pending3d=false;update3D();});}
  function render(){renderStockControls();const t=current(),f=data.foam,issues=render2D();field('foamProjectName',data.name);for(const [id,key] of Object.entries({foamWidth:'width',foamHeight:'height',foamThickness:'thickness',foamBase:'base',foamMargin:'margin',foamSpacing:'spacing'}))field(id,f[key]);$('foamToolCount').textContent=data.tools.length;$('foamToolSettings').hidden=!t;renderToolList();
  if(t){field('foamToolName',t.name);field('foamDepth',t.depth);field('foamDepthRange',t.depth);$('foamDepth').max=$('foamDepthRange').max=Math.max(.1,f.thickness-f.base);field('foamX',+t.x.toFixed(1));field('foamY',+t.y.toFixed(1));field('foamRotation',t.rotation);$('foamZones').replaceChildren();t.zones.forEach((z,i)=>{const row=document.createElement('div');row.className='foam-zone';const label=document.createElement('label');label.textContent=`Region ${i+1} · mm `;const input=document.createElement('input');input.type='number';input.inputMode='decimal';input.min=t.depth+.1;input.max=f.thickness-f.base;input.step='.1';input.value=z.depth;input.setAttribute('aria-label',`Region ${i+1} depth`);input.oninput=()=>{const n=+input.value;if(n<=t.depth||n>f.thickness-f.base)return;remember('zone-'+z.id);z.depth=n;renderGeometry();};input.onchange=input.onblur=commit;label.append(input);const remove=document.createElement('button');remove.className='text-btn danger';remove.textContent='Remove ×';remove.onclick=()=>{remember();t.zones.splice(i,1);render();};row.append(label,remove);$('foamZones').append(row);});}
@@ -83,14 +83,14 @@ export function createFoamStudio(api){
  const svg=$('foamLayout'),pt=(e,inverse=svg.getScreenCTM().inverse())=>{const p=new DOMPoint(e.clientX,e.clientY).matrixTransform(inverse);return [p.x,p.y];};
  function showDragIssues(issues){
   const bad=new Set(issues.flatMap(i=>i.tools));
-  svg.querySelectorAll('[data-instance]').forEach(path=>path.classList.toggle('invalid',bad.has(+path.dataset.instance)));
+  svg.querySelectorAll('[data-instance]').forEach(path=>{const invalid=bad.has(+path.dataset.instance);if(path.classList.contains('invalid')!==invalid)path.classList.toggle('invalid',invalid);});
   $('foamStatus').dataset.error=String(!!issues.length);
-  $('foamStatus').textContent=issues.length?[...new Set(issues.map(i=>i.message))].slice(0,4).join('\n'):'Layout ready';
+  setText($('foamStatus'),issues.length?[...new Set(issues.map(i=>i.message))].slice(0,4).join('\n'):'Layout ready');
  }
  function pumpDragCheck(){
   if(!layoutQueued||layoutBusy||!drag?.changed||layoutWorkerFailed)return;
   if(!layoutWorker){try{
-   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261022-perf1',import.meta.url),{type:'module'});
+   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261022-curves2',import.meta.url),{type:'module'});
    layoutWorker.onmessage=({data:result})=>{layoutBusy=false;if(result.id===layoutRevision&&drag?.changed&&!result.error)showDragIssues(result.issues);pumpDragCheck();};
    layoutWorker.onerror=()=>{layoutWorker.terminate();layoutWorker=null;layoutBusy=false;layoutQueued=false;layoutWorkerFailed=true;};
   }catch{layoutWorkerFailed=true;return;}}
@@ -98,12 +98,14 @@ export function createFoamStudio(api){
  }
  function checkDrag(){
   // Export remains blocked until the final authoritative check on release.
-  $('foamExport').disabled=true;$('foamStatus').dataset.error='false';
-  $('foamStatus').textContent='Moving… · release to finish';layoutRevision++;layoutQueued=true;pumpDragCheck();
+  $('foamExport').disabled=true;layoutRevision++;layoutQueued=true;
+  // Keep validation off the animation hot path and avoid sending the full
+  // document or forcing status/list reflows for every display frame.
+  if(!drag.checkTimer){const currentDrag=drag;currentDrag.checkTimer=setTimeout(()=>{currentDrag.checkTimer=0;if(drag===currentDrag)pumpDragCheck();},100);}
  }
- function stopDragFrame(){$('foamStage').classList.remove('is-dragging');if(dragFrame)cancelAnimationFrame(dragFrame);dragFrame=0;latestPointer=null;layoutRevision++;layoutQueued=false;}
+ function stopDragFrame(){const layer=svg.querySelector('.drag-layer');if(layer){layer.style.removeProperty('transform');layer.classList.remove('drag-layer');}$('foamStage').classList.remove('is-dragging');if(dragFrame)cancelAnimationFrame(dragFrame);dragFrame=0;latestPointer=null;layoutRevision++;layoutQueued=false;}
  function restoreDrag(d){data=d.before;undo=d.undoBefore;redo=d.redoBefore;}
- function discardDrag(rollback=true){const d=drag;drag=null;stopDragFrame();pinch=null;zoneRect=null;if(rollback&&d?.changed)restoreDrag(d);for(const id of pointers.keys())if(svg.hasPointerCapture(id))svg.releasePointerCapture(id);pointers.clear();}
+ function discardDrag(rollback=true){const d=drag;if(d?.checkTimer)clearTimeout(d.checkTimer);drag=null;stopDragFrame();pinch=null;zoneRect=null;if(rollback&&d?.changed)restoreDrag(d);for(const id of pointers.keys())if(svg.hasPointerCapture(id))svg.releasePointerCapture(id);pointers.clear();}
  function flushDrag(){
   if(dragFrame)cancelAnimationFrame(dragFrame);dragFrame=0;
   const e=latestPointer;latestPointer=null;if(!e||!drag)return;
@@ -121,20 +123,20 @@ export function createFoamStudio(api){
    viewBox=[drag.viewBox[0]-dx,drag.viewBox[1]-dy,...drag.viewBox.slice(2)];svg.setAttribute('viewBox',viewBox.join(' '));return;
   }
   if(!drag.moved&&!drag.changed)return;
-  if(!drag.changed){$('foamStage').classList.add('is-dragging');drag.before=clone(data);remember(undefined,drag.before);drag.changed=true;}
+  if(!drag.changed){$('foamStage').classList.add('is-dragging');drag.before=clone(data);remember(undefined,drag.before);drag.changed=true;if(drag.group)drag.group.classList.add('drag-layer');}
   if(drag.type==='keepout'){
    const b=extent(drag.keepoutOriginal),tx=Math.max(-b.minX,Math.min(data.foam.width-b.maxX,dx)),ty=Math.max(-b.minY,Math.min(data.foam.height-b.maxY,dy));
    data.foam.keepouts[drag.keepout].shape=drag.keepoutOriginal.map(p=>p.map(r=>r.map(([x,y])=>[x+tx,y+ty])));
    drag.areaPath?.setAttribute('transform',`translate(${tx} ${ty})`);drag.areaLabel?.setAttribute('transform',`translate(${tx} ${ty})`);
   }else{
    const t=data.tools[drag.index];t.x=drag.original.x+dx;t.y=drag.original.y+dy;
-   drag.group?.setAttribute('transform',`translate(${dx} ${dy})`);field('foamX',+t.x.toFixed(1));field('foamY',+t.y.toFixed(1));
+   if(drag.group)drag.group.style.transform=`translate(${dx}px, ${dy}px)`;field('foamX',+t.x.toFixed(1));field('foamY',+t.y.toFixed(1));
   }
   checkDrag();
  }
  svg.addEventListener('pointerdown',e=>{
   if(e.button!==0)return;svg.setPointerCapture(e.pointerId);pointers.set(e.pointerId,{x:e.clientX,y:e.clientY});
-  if(pointers.size===2){if(drag?.changed)restoreDrag(drag);drag=null;stopDragFrame();zoneRect=null;const ps=[...pointers.values()],vb=svg.viewBox.baseVal;pinch={distance:Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y),mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2},box:[vb.x,vb.y,vb.width,vb.height]};render();return;}
+  if(pointers.size===2){if(drag?.checkTimer)clearTimeout(drag.checkTimer);if(drag?.changed)restoreDrag(drag);drag=null;stopDragFrame();zoneRect=null;const ps=[...pointers.values()],vb=svg.viewBox.baseVal;pinch={distance:Math.hypot(ps[0].x-ps[1].x,ps[0].y-ps[1].y),mid:{x:(ps[0].x+ps[1].x)/2,y:(ps[0].y+ps[1].y)/2},box:[vb.x,vb.y,vb.width,vb.height]};render();return;}
   if(pointers.size>2)return;
   const index=e.target.closest('[data-instance]')?.dataset.instance,area=e.target.closest('[data-keepout]')?.dataset.keepout;
   if(index!==undefined&&!drawZone&&!areaMode)selected=+index;
@@ -152,7 +154,7 @@ export function createFoamStudio(api){
   if(!cancelled&&drag){latestPointer={clientX:e.clientX,clientY:e.clientY};flushDrag();}
   pointers.delete(e.pointerId);if(svg.hasPointerCapture(e.pointerId))svg.releasePointerCapture(e.pointerId);
   if(pinch){if(pointers.size<2)pinch=null;drag=null;stopDragFrame();render2D();return;}
-  if(!drag)return;const d=drag;drag=null;stopDragFrame();
+  if(!drag)return;const d=drag;if(d?.checkTimer)clearTimeout(d.checkTimer);drag=null;stopDragFrame();
   if(cancelled){if(d.changed)restoreDrag(d);zoneRect=null;render();return;}
   if(!d.changed&&d.type==='tool')return;
   if(d.type==='keepout-rectangle'&&zoneRect){const [x,y,w,h]=zoneRect;if(w>=1&&h>=1)addKeepout(rectShape(x,y,w,h));zoneRect=null;areaMode=null;}
@@ -177,7 +179,7 @@ export function createFoamStudio(api){
  $('foamVerifyPhoto').onclick=()=>{measurePoints=[];drawZone=false;areaMode='measure';setView('layout');resetView();panel('layout');};
  function showReference(){const distance=Math.hypot(measurePoints[1][0]-measurePoints[0][0],measurePoints[1][1]-measurePoints[0][1]);api.modal('Check a measured reference','PHOTO SCALE',`<p>Selected distance: <strong>${distance.toFixed(2)} mm</strong>. Enter the physical length measured between those same points.</p><div class="foam-reference-fields"><label>Actual length · mm <input id="photoReferenceActual" type="number" min="0.1" max="3000" inputmode="decimal" step="0.1"></label><button id="photoReferenceSave" class="primary">Record check</button></div><div id="photoReferenceResult" class="foam-reference-preview"></div>`);const input=$('photoReferenceActual'),out=$('photoReferenceResult');function preview(){try{const result=referenceCheck(measurePoints,+input.value);out.textContent=`${result.passed?'Pass':'Outside check tolerance'} · ${result.error.toFixed(2)} mm difference · tolerance ${result.tolerance.toFixed(2)} mm`;}catch{out.textContent='Enter the measured reference length.';}}input.oninput=preview;$('photoReferenceSave').onclick=()=>{try{const result=referenceCheck(measurePoints,+input.value);if(!data.foam.photo)return;remember();data.foam.photo.verification=result;render();$('modal').close();}catch(e){api.toast(e.message);}};}
  $('foamSetupGuide').onclick=()=>api.download(camSetup(data,{alignmentFrame:$('foamAlignmentFrame').checked}),`${data.name.replace(/[^a-z0-9_-]/gi,'-')}-CAM-setup.txt`,'text/plain');
- async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
+ async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js?v=20261022-curves2'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
  if(matchMedia('(max-width:767px)').matches)$('foamDimensionSettings').open=false;$('foamDimensionSettings').ontoggle=()=>{if(matchMedia('(max-width:767px)').matches){if($('foamDimensionSettings').open)resetView();else if(host.dataset.panel==='settings')fitSelected();}};
  render();return {show,hide,addCaptured,openLibrary,captureFoamImage:stockPhoto.openImage,getData:()=>{const output=clone(data),photo=output.foam.photo;if(photo&&$('foamIncludePhoto').checked&&photoAssets.get(photo.id)?.dataURL)photo.image=photoAssets.get(photo.id).dataURL;return output;},load:incoming=>{const valid=validateFoam(incoming);discardDrag(false);photoChangeVersion++;data=valid;if(data.foam.photo?.image){const photo=data.foam.photo,url=photo.image;delete photo.image;cachePhoto(photo.id,dataURLBlob(url));}selected=data.tools.length?0:-1;undo=[];redo=[];viewBox=null;render();},clear:()=>{discardDrag(false);photoChangeVersion++;data={name:'Drawer 1',foam:{...DEFAULT_FOAM},tools:[]};selected=-1;undo=[];redo=[];viewBox=null;render();},hasTools:()=>!!data.tools.length||!!data.foam.photo||!!data.foam.keepouts?.length};
 }

@@ -13,3 +13,19 @@ export function fairOutline(poly,{radius=.75,maxDeviation=.35,strength=2}={}){
  const output=distinct.map(({p,d})=>{let x=0,y=0,sum=0;const center=Math.round(d/step);for(let j=-reach;j<=reach;j++){const at=center+j,delta=at*step-d,q=points[((at%points.length)+points.length)%points.length],w=Math.exp(-delta*delta/(2*sigma*sigma));x+=q[0]*w;y+=q[1]*w;sum+=w;}const q=[x/sum,y/sum],dx=q[0]-p[0],dy=q[1]-p[1],length=Math.hypot(dx,dy),factor=length>limit?limit/length:1;return [p[0]+dx*factor,p[1]+dy*factor];});
  if(Math.sign(area(original))!==Math.sign(area(output))||Math.abs(area(output))<.1||hasCrossings(output))return original;const ring=cleanRing(output),reduced=ring.filter((b,i)=>{const a=ring[(i+ring.length-1)%ring.length],c=ring[(i+1)%ring.length],cross=(b[0]-a[0])*(c[1]-b[1])-(b[1]-a[1])*(c[0]-b[0]),dot=(b[0]-a[0])*(c[0]-b[0])+(b[1]-a[1])*(c[1]-b[1]);return Math.abs(cross)>1e-10||dot<0;});return reduced.length>=3?reduced:ring;
 }
+
+// Tangent quadratic corner arcs with an explicit chord-error bound. Long
+// straight edges stay straight; unlike low-pass Chaikin polygons, rounded
+// corners do not depend on how many vertices happened to be extracted.
+export function roundCorners(poly,radius=1,tolerance=.005){
+ const ring=cleanRing(poly),out=[];
+ for(let i=0;i<ring.length;i++){
+  const a=ring[(i+ring.length-1)%ring.length],b=ring[i],c=ring[(i+1)%ring.length],la=Math.hypot(a[0]-b[0],a[1]-b[1]),lc=Math.hypot(c[0]-b[0],c[1]-b[1]);
+  const trim=Math.min(radius,la*.45,lc*.45),u=[b[0]+(a[0]-b[0])*trim/la,b[1]+(a[1]-b[1])*trim/la],v=[b[0]+(c[0]-b[0])*trim/lc,b[1]+(c[1]-b[1])*trim/lc];
+  const bend=Math.hypot(u[0]-2*b[0]+v[0],u[1]-2*b[1]+v[1]);
+  if(bend<1e-8){out.push(b);continue;}
+  const steps=Math.max(2,Math.ceil(Math.sqrt(bend/(4*tolerance))));
+  for(let j=0;j<=steps;j++){const t=j/steps,q=1-t;out.push([q*q*u[0]+2*q*t*b[0]+t*t*v[0],q*q*u[1]+2*q*t*b[1]+t*t*v[1]]);}
+ }
+ const result=cleanRing(out);return hasCrossings(result)?ring:result;
+}

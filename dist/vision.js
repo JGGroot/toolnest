@@ -1,4 +1,5 @@
-import {fairOutline,cleanRing} from './outline.js';
+import {vectorCutPaths} from './cut-geometry.js?v=20261022-curves2';
+import {fairOutline,cleanRing,roundCorners} from './outline.js?v=20261022-curves2';
 import {edgeSilhouette} from './segmentation.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -49,17 +50,26 @@ export function smooth(p,passes=1){for(let k=0;k<passes;k++){const a=[];for(let 
 export function smoothOutline(poly,passes=1,mode='round',options={}){
  if(mode==='fair')return fairOutline(poly,{strength:passes,radius:options.radius??.75,maxDeviation:options.maxDeviation??.35});
  passes=Math.max(0,Math.min(5,Math.round(passes)));if(!passes)return poly;
+ if(mode==='round')return roundCorners(poly,(options.radius??.75)*(.4+.6*passes));
  if(mode==='relax'){const points=[];let remainder=0;for(let i=0;i<poly.length;i++){const a=poly[i],b=poly[(i+1)%poly.length],length=Math.hypot(b[0]-a[0],b[1]-a[1]);for(let d=remainder;d<length;d+=.4)points.push([a[0]+(b[0]-a[0])*d/(length||1),a[1]+(b[1]-a[1])*d/(length||1)]);remainder=(remainder-length)%.4;if(remainder<0)remainder+=.4;}if(points.length<3)return poly;const radius=passes;return points.map((_,i)=>{let x=0,y=0,total=0;for(let j=-radius;j<=radius;j++){const p=points[(i+j+points.length)%points.length],w=radius+1-Math.abs(j);x+=p[0]*w;y+=p[1]*w;total+=w;}return [x/total,y/total];});}
- let p=poly;for(let k=0;k<passes;k++){if(p.length>2048)p=simplify(p,.035);if(mode==='round'){p=smooth(p,1);continue;}const out=[];for(let i=0;i<p.length;i++){const a=p[(i+p.length-1)%p.length],b=p[i],c=p[(i+1)%p.length],u=[b[0]-a[0],b[1]-a[1]],v=[c[0]-b[0],c[1]-b[1]],cos=(u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1);if(cos<.57){out.push(b);continue;}out.push([b[0]*.75+a[0]*.25,b[1]*.75+a[1]*.25],[b[0]*.75+c[0]*.25,b[1]*.75+c[1]*.25]);}p=out;}return p;
+ let p=poly;for(let k=0;k<passes;k++){if(p.length>2048)p=simplify(p,.035);const out=[];for(let i=0;i<p.length;i++){const a=p[(i+p.length-1)%p.length],b=p[i],c=p[(i+1)%p.length],u=[b[0]-a[0],b[1]-a[1]],v=[c[0]-b[0],c[1]-b[1]],cos=(u[0]*v[0]+u[1]*v[1])/(Math.hypot(...u)*Math.hypot(...v)||1);if(cos<.57){out.push(b);continue;}out.push([b[0]*.75+a[0]*.25,b[1]*.75+a[1]*.25],[b[0]*.75+c[0]*.25,b[1]*.75+c[1]*.25]);}p=out;}return p;
 }
 export function contours(mask,w,h,scale=1,minArea=12){const edges=new Map(),key=(x,y)=>y*(w+1)+x;function edge(x,y,u,v){const k=key(x,y);if(!edges.has(k))edges.set(k,[]);edges.get(k).push(key(u,v));}for(let y=1;y<h-1;y++)for(let x=1;x<w-1;x++){const p=y*w+x;if(!mask[p])continue;if(!mask[p-w])edge(x,y,x+1,y);if(!mask[p+1])edge(x+1,y,x+1,y+1);if(!mask[p+w])edge(x+1,y+1,x,y+1);if(!mask[p-1])edge(x,y+1,x,y);}const paths=[];while(edges.size){const start=edges.keys().next().value;let k=start;const p=[];let guard=0;do{p.push([(k%(w+1))/scale,Math.floor(k/(w+1))/scale]);const next=edges.get(k);if(!next)break;const n=next.pop();if(!next.length)edges.delete(k);k=n;}while(k!==start&&guard++<w*h*4);if(k===start&&p.length>3&&polygonArea(p)>minArea)paths.push(simplify(p,.15));}return paths.sort((a,b)=>polygonArea(b)-polygonArea(a));}
 export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){if(method==='edges'){const [pw,ph]=PAPERS[paper],s=image.width/pw,roi={left:Math.ceil(33*s),right:Math.floor((pw-33)*s),top:Math.ceil(33*s),bottom:Math.floor((ph-33)*s)},mask=edgeSilhouette(image,roi,threshold,{...options,pixelsPerMm:s});return contours(mask,image.width,image.height,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&b.minX>33.5&&b.maxX<pw-33.5&&b.minY>33.5&&b.maxY<ph-33.5;});}const [pw,ph]=PAPERS[paper],s=image.width/pw,g=gray(image),mask=new Uint8Array(g.length);for(let y=0;y<image.height;y++)for(let x=0;x<image.width;x++){if(x/s<33||x/s>pw-33||y/s<33||y/s>ph-33)continue;mask[y*image.width+x]=g[y*image.width+x]<threshold?1:0;}return contours(mask,image.width,image.height,s,minArea);}
 function inside(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 export function bounds(p){return {minX:Math.min(...p.map(v=>v[0])),maxX:Math.max(...p.map(v=>v[0])),minY:Math.min(...p.map(v=>v[1])),maxY:Math.max(...p.map(v=>v[1]))};}
-export function makeCutPaths(polys,fingers,paper,clearance=0,passes=1,options={}){const [pw,ph]=PAPERS[paper],s=4,w=Math.round(pw*s),h=Math.round(ph*s),mask=new Uint8Array(w*h);for(const poly of polys){const b=bounds(poly);for(let y=Math.max(1,Math.floor(b.minY*s));y<Math.min(h-1,Math.ceil(b.maxY*s));y++){const scanY=(y+.5)/s,xs=[];for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>scanY)!==(b[1]>scanY))xs.push(a[0]+(scanY-a[1])*(b[0]-a[0])/(b[1]-a[1]));}xs.sort((a,b)=>a-b);for(let i=0;i+1<xs.length;i+=2){const left=Math.max(1,Math.ceil(xs[i]*s-.5)),right=Math.min(w-1,Math.ceil(xs[i+1]*s-.5));if(right>left)mask.fill(1,y*w+left,y*w+right);}}}
-if(Math.abs(clearance)>.01){const d=new Float32Array(w*h),target=clearance>0?1:0;for(let i=0;i<d.length;i++)d[i]=mask[i]===target?0:1e6;for(let y=1;y<h;y++)for(let x=1;x<w-1;x++){let i=y*w+x;d[i]=Math.min(d[i],d[i-1]+1,d[i-w]+1,d[i-w-1]+Math.SQRT2,d[i-w+1]+Math.SQRT2);}for(let y=h-2;y>=0;y--)for(let x=w-2;x>0;x--){let i=y*w+x;d[i]=Math.min(d[i],d[i+1]+1,d[i+w]+1,d[i+w-1]+Math.SQRT2,d[i+w+1]+Math.SQRT2);}for(let i=0;i<mask.length;i++)mask[i]=clearance>0?(d[i]<=clearance*s?1:0):(d[i]>-clearance*s?1:0);}
-for(const f of fingers)for(let y=Math.max(1,Math.floor((f.y-f.r)*s));y<Math.min(h-1,(f.y+f.r)*s);y++)for(let x=Math.max(1,Math.floor((f.x-f.r)*s));x<Math.min(w-1,(f.x+f.r)*s);x++)if(((x+.5)/s-f.x)**2+((y+.5)/s-f.y)**2<=f.r*f.r)mask[y*w+x]=1;
-return contours(mask,w,h,s,4).map(p=>cleanRing(smoothOutline(simplify(p,options.simplification??.18),passes,options.mode??'round',options)));}
+// Worker messages clone arrays, so content keys let live grip edits reuse
+// unchanged body refinement. Bound the cache; names and selections are irrelevant.
+const refinementCache=new Map();
+export function makeCutPaths(polys,fingers,paper,clearance=0,passes=1,options={}){
+ const settings=JSON.stringify([passes,options.mode??'round',options.simplification??.18,options.radius??.75,options.maxDeviation??.35]);
+ const refined=polys.map(p=>{
+  const key=settings+JSON.stringify(p);let ring=refinementCache.get(key);
+  if(!ring){ring=cleanRing(smoothOutline(simplify(p,options.simplification??.18),passes,options.mode??'round',options));refinementCache.set(key,ring);if(refinementCache.size>128)refinementCache.delete(refinementCache.keys().next().value);}
+  return ring;
+ });
+ return vectorCutPaths(refined,fingers,PAPERS[paper],clearance);
+}
 export function pathD(p){return p.map((v,i)=>(i?'L':'M')+v.map(n=>n.toFixed(3)).join(' ')).join(' ')+' Z';}
 export function exportSVG(paths,paper){const [w,h]=PAPERS[paper];return `<svg xmlns="http://www.w3.org/2000/svg" width="${w}mm" height="${h}mm" viewBox="0 0 ${w} ${h}"><g fill="none" stroke="#000" stroke-width="0.1">${paths.map(p=>`<path d="${pathD(p)}"/>`).join('')}</g></svg>`;}
 export function exportDXF(paths,paper){let a=['0','SECTION','2','HEADER','9','$INSUNITS','70','4','0','ENDSEC','0','SECTION','2','ENTITIES'];for(const p of paths){a.push('0','LWPOLYLINE','100','AcDbEntity','8','CUT','100','AcDbPolyline','90',String(p.length),'70','1');for(const [x,y] of p)a.push('10',x.toFixed(4),'20',(PAPERS[paper][1]-y).toFixed(4));}a.push('0','ENDSEC','0','EOF');return a.join('\n')+'\n';}

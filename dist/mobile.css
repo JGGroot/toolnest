@@ -215,3 +215,9 @@ body.canvas-focus .mobile-nav{display:none!important}
 #editor .tool-selection{fill:#d9a57d;fill-opacity:.16;stroke:#c66c40;stroke-width:1.5;vector-effect:non-scaling-stroke;pointer-events:none}
 #editor .tool-label{pointer-events:all;cursor:pointer}
 .canvas-area.is-dragging,.canvas-area.is-dragging *, .foam-stage.is-dragging,.foam-stage.is-dragging *{cursor:grabbing!important}
+
+/* Keep the moving profile on its own compositor layer. SVG filters force a
+   full-sheet offscreen raster on some desktop graphics drivers. */
+#sheetWrap{filter:none;box-shadow:2px 5px 10px #3c47331c}
+.drag-layer{will-change:transform;transform-box:view-box;transform-origin:0 0;pointer-events:none}
+.canvas-area,.foam-stage{contain:paint}
