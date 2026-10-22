@@ -1,0 +1,20 @@
+import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';
+import {writeFileSync} from 'node:fs';import assert from 'node:assert/strict';
+import {calibrationPDF,calibrationSVG,calibrationPrintHTML} from '../dist/calibration.js';
+const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
+for(const paper of ['a4','letter']){
+ writeFileSync(`tests/print-${paper}.pdf`,calibrationPDF(paper));writeFileSync(`/workspace/library-files/Toolnest-${paper==='a4'?'A4':'US-Letter'}-calibration.pdf`,calibrationPDF(paper));
+ writeFileSync(`tests/print-${paper}.svg`,calibrationSVG(paper));
+ for(const [name,width,height] of [['desktop',1440,1100],['phone',390,844]]){
+  const page=await browser.newPage({viewport:{width,height}});await page.setContent(calibrationPrintHTML(paper));await page.pdf({path:`tests/print-browser-${paper}-${name}.pdf`,preferCSSPageSize:true,printBackground:true,displayHeaderFooter:false});
+  const dims=await page.locator('svg').evaluate(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height}));assert.ok(dims.width>790&&dims.width<817);await page.close();
+ }
+}
+const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});await context.addInitScript(()=>window.print=()=>{});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await page.locator('[data-panel="capture"]').tap();
+await page.pdf({path:'tests/print-app-a4-phone.pdf',preferCSSPageSize:true});
+const [direct]=await Promise.all([page.waitForEvent('download'),page.locator('#downloadSheet').tap()]);assert.ok(direct.suggestedFilename().endsWith('.pdf'));await direct.saveAs('tests/print-download.pdf');
+await page.locator('#printBtn').tap();assert.match(await page.locator('#modalBody').textContent(),/A4 \(210 × 297 mm\)/);const [pdf]=await Promise.all([page.waitForEvent('download'),page.locator('#sheetDownloadPDF').tap()]);await pdf.saveAs('tests/print-modal-download.pdf');
+const [svg]=await Promise.all([page.waitForEvent('download'),page.locator('#sheetDownloadSVG').tap()]);assert.ok(svg.suggestedFilename().endsWith('.svg'));await page.locator('#doPrint').tap();await page.waitForFunction(()=>document.getElementById('calibrationPrintFrame')?.dataset.ready==='true');const frame=page.frame({name:'calibration-print'});assert.ok(frame);assert.equal(await frame.locator('svg').getAttribute('width'),'210mm');assert.equal(await frame.locator('link,script,.app-layout').count(),0);assert.equal(await page.locator('#calibrationPrintFrame').getAttribute('aria-hidden'),'true');
+// Frame prints are repeatable and switching paper updates the PDF and isolated document.
+await page.locator('#printBtn').tap();await page.locator('#doPrint').tap();await page.waitForFunction(()=>document.getElementById('calibrationPrintFrame')?.dataset.ready==='true');assert.equal(await page.locator('#calibrationPrintFrame').count(),1);
+await page.locator('#paper').selectOption('letter');await page.locator('#confirmPaper').tap();await page.locator('#printBtn').tap();assert.match(await page.locator('#modalBody').textContent(),/US Letter \(8.5 × 11 in\)/);const [letter]=await Promise.all([page.waitForEvent('download'),page.locator('#sheetDownloadPDF').tap()]);assert.equal(letter.suggestedFilename(),'toolnest-letter-calibration.pdf');await letter.saveAs('tests/print-letter-download.pdf');await page.locator('#doPrint').tap();await page.waitForFunction(()=>document.getElementById('calibrationPrintFrame')?.dataset.ready==='true');assert.equal(await page.frame({name:'calibration-print'}).locator('svg').getAttribute('width'),'215.9mm');await page.pdf({path:'tests/print-app-letter-phone.pdf',preferCSSPageSize:true});assert.deepEqual(errors,[]);await browser.close();console.log('PDF/SVG download, isolated printing, repeated printing, A4/Letter selection, desktop/phone layout passed.');

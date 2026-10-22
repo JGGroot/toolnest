@@ -1,0 +1,3 @@
+import {makeFixture} from '../dist/fixtures.js';import {writeFileSync} from 'node:fs';const image=makeFixture(),data=Buffer.alloc(image.width*image.height*3);for(let i=0;i<image.width*image.height;i++){data[i*3]=image.data[i*4];data[i*3+1]=image.data[i*4+1];data[i*3+2]=image.data[i*4+2];}writeFileSync('/tmp/toolnest-camera.ppm',Buffer.concat([Buffer.from(`P6\n${image.width} ${image.height}\n255\n`),data]));
+
+import {execFileSync} from 'node:child_process';execFileSync('ffmpeg',['-hide_banner','-loglevel','error','-y','-loop','1','-i','/tmp/toolnest-camera.ppm','-r','5','-t','2','-pix_fmt','yuv420p','-f','yuv4mpegpipe','/tmp/toolnest-camera.y4m']);

@@ -1,0 +1,3 @@
+import {computePreview} from './preview-model.js';
+let image=null;
+self.onmessage=e=>{const m=e.data;if(m.type==='image'){image=m.image;return;}try{self.postMessage({id:m.id,result:computePreview(m.state,image,m.retrace)});}catch(error){self.postMessage({id:m.id,error:error.message});}};

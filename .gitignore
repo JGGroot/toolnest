@@ -1,0 +1,10 @@
+node_modules/
+tests/*.png
+tests/export.*
+tests/project.json
+*.tar.gz
+tests/sheet.svg
+tests/*.pdf
+tests/print-*.png
+tests/print-*.svg
+tests/print-report.json
