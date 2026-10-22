@@ -208,3 +208,7 @@ body.canvas-focus .mobile-nav{display:none!important}
  body[data-mobile-panel=refine]:not(.canvas-focus) .app-layout{height:calc(100dvh - 140px - env(safe-area-inset-bottom));min-height:360px}
 }
 @media(max-height:600px) and (max-width:767px){body[data-mobile-panel=refine]:not(.canvas-focus) .app-layout{height:calc(100dvh - 132px);min-height:340px}}
+/* Prevent native selection/drag gestures from competing with tool placement. */
+.canvas-area,.foam-stage,.stock-photo-stage{user-select:none;-webkit-user-select:none}
+#editor .raw-path,#editor .tool-path{cursor:grab}
+#editor .tool-hit{pointer-events:all;cursor:grab}

@@ -2,6 +2,14 @@
 
 Static CNC foam layout software for toolboxes. Deployment and moving projects from the previous website: [DEPLOY.md](DEPLOY.md).
 
+## Tool dragging
+
+Trace tool bodies, grips, labels and isolated cut contours move together during a drag. Tool hit areas follow each source silhouette so merged cut contours do not select unrelated tools. When outlines are merged, the drag shows individual tool bodies and recomputes the combined cutting contour on release. Foam placement moves the tool and its depth regions with an SVG transform once per animation frame. Clearance checks run in a coalesced background worker while moving; release always performs the authoritative layout check before enabling export. Without workers, placement remains interactive and clearance is checked on release.
+
+Gestures retain their initial screen-to-millimetre transform, commit the final release position, and create one undo step. Pointer capture supports dropping outside the canvas; Escape or window focus loss cancels an unfinished edit. Touch drag-to-pinch conversion rolls back the accidental tool move.
+
+With the local server running, `npm run test:drag` checks continuous movement in Trace and Foam at desktop and laptop widths, grips and depth regions, repeated zoomed drags, drops outside the SVG, panning, undo/redo, cancellation, touch rollback, merged outlines, a 40-tool/16,040-point layout, background clearance warnings and no-worker recovery. Set `TOOLNEST_URL` to check a deployed copy and `TOOLNEST_PROXY` when a browser proxy is required. These browser checks use the development environment's Playwright/Chromium paths.
+
 A browser-local tool-photo to CNC foam outline editor. Run `npm start` and open http://localhost:3000. No build or npm installation required. Photos are never sent to a server. All fonts and scripts are local.
 
 ## Workflow
