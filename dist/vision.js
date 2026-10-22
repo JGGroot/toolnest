@@ -1,5 +1,5 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261022-curves2';
-import {fairOutline,cleanRing,roundCorners} from './outline.js?v=20261022-curves2';
+import {vectorCutPaths} from './cut-geometry.js?v=20261022-edges3';
+import {fairOutline,cleanRing,roundCorners} from './outline.js?v=20261022-edges3';
 import {edgeSilhouette} from './segmentation.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};

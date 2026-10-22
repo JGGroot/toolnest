@@ -1,4 +1,4 @@
-import {PAPERS,markerBits,markerCorners} from './vision.js?v=20261022-curves2';
+import {PAPERS,markerBits,markerCorners} from './vision.js?v=20261022-edges3';
 const NS='http://www.w3.org/2000/svg';
 const paperName=paper=>paper==='letter'?'US Letter':'A4';
 function page(paper){if(!PAPERS[paper])throw Error('Unsupported paper size');return PAPERS[paper];}

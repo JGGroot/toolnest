@@ -10,6 +10,7 @@
     "test:performance": "node tests/interaction-performance.mjs",
     "test:camera": "node tests/make-camera-fixture.mjs && node tests/camera-browser.mjs",
     "test:motion": "node tests/sustained-drag.mjs",
-    "test:grips": "node tests/finger-drag.mjs"
+    "test:grips": "node tests/finger-drag.mjs",
+    "test:edges": "node tests/thin-edges.mjs"
   }
 }

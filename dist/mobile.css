@@ -221,3 +221,17 @@ body.canvas-focus .mobile-nav{display:none!important}
 #sheetWrap{filter:none;box-shadow:2px 5px 10px #3c47331c}
 .drag-layer{will-change:transform;transform-box:view-box;transform-origin:0 0;pointer-events:none}
 .canvas-area,.foam-stage{contain:paint}
+
+/* Hairline cut boundaries stay the same screen width at every zoom level.
+   Selection and transparent hit regions never thicken the cutting contour. */
+#editor .tool-path{stroke:#748567;stroke-width:calc(.7px / var(--trace-zoom,1));fill-opacity:.07;vector-effect:non-scaling-stroke}
+#editor .tool-path.selected{stroke:#c45d32;stroke-width:calc(.85px / var(--trace-zoom,1));fill-opacity:.07}
+#editor .raw-path{fill-opacity:.035}
+#editor .tool-selection{fill:none;stroke:#70796a;stroke-width:calc(.6px / var(--trace-zoom,1));stroke-dasharray:3 3;opacity:.65}
+#editor[data-view=overlay] .tool-path,#editor[data-view=overlay] .raw-path{fill:none}
+#editor .drag-preview{fill:none;stroke-width:calc(.75px / var(--trace-zoom,1))}
+#editor .finger-circle,#editor .grip-preview{fill:transparent;stroke-width:calc(.65px / var(--trace-zoom,1));stroke-dasharray:3 3;vector-effect:non-scaling-stroke}
+#editor .finger-circle{pointer-events:all}
+#foamLayout .foam-layout-tool{stroke-width:.7;vector-effect:non-scaling-stroke}
+#foamLayout .foam-layout-tool.selected{stroke-width:.85}
+#foamLayout .foam-layout-zone,#foamLayout .foam-selected-outline{stroke-width:.65;vector-effect:non-scaling-stroke}

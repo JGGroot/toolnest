@@ -1,17 +1,17 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261022-curves2';
-import {createLiveCamera} from './camera-ui.js?v=20261022-curves2';
-import {createFoamStudio} from './foam-ui.js?v=20261022-curves2';
-import {validateFoam} from './foam-model.js?v=20261022-curves2';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261022-curves2';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261022-curves2';
+import {prepareCaptureAsync} from './capture-client.js?v=20261022-edges3';
+import {createLiveCamera} from './camera-ui.js?v=20261022-edges3';
+import {createFoamStudio} from './foam-ui.js?v=20261022-edges3';
+import {validateFoam} from './foam-model.js?v=20261022-edges3';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261022-edges3';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261022-edges3';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261022-curves2';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261022-curves2';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261022-edges3';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261022-edges3';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261022-curves2',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261022-edges3',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
@@ -62,19 +62,19 @@ function el(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(cons
 let traceProfileCache=new WeakMap(),markerCache=new Map();const traceScene=new SVGScene($('editor'));
 function profile(points){let value=traceProfileCache.get(points);if(!value){value={d:pathD(points),b:bounds(points)};traceProfileCache.set(points,value);}return value;}
 function renderTraceScene(){
- const [w,h]=PAPERS[state.paper],svg=$('editor'),photo=view==='photo'&&sourceURL;
+ const [w,h]=PAPERS[state.paper],svg=$('editor'),photo=view==='photo'&&sourceURL;attr(svg,'data-view',view);
  attr(svg,'viewBox',photo?`0 0 ${source.width} ${source.height}`:`0 0 ${w} ${h}`);const ratio=`${w}/${h}`;if($('sheetWrap').style.aspectRatio!==ratio)$('sheetWrap').style.aspectRatio=ratio;
  const has=state.tools.length>0||source;$('sheetWrap').hidden=!has;$('emptyState').hidden=!!has;
  const specs=[],add=(key,tag,attrs,text)=>specs.push({key,tag,attrs,text}),ppu=Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1));
  if(photo){add('photo','image',{href:sourceURL,width:source.width,height:source.height});(state.cal?.markers||[]).forEach((m,i)=>add('marker-'+i,'polygon',{points:m.corners.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#a8d366','stroke-width':3}));}
  else{
-  add('sheet','rect',{width:w,height:h,fill:'#fdfdf9'});if(view==='overlay'&&correctedURL)add('photo','image',{href:correctedURL,width:w,height:h,opacity:.72});
+  add('sheet','rect',{width:w,height:h,fill:'#fdfdf9'});if(view==='overlay'&&correctedURL)add('photo','image',{href:correctedURL,width:w,height:h,opacity:1});
   if(!markerCache.has(state.paper))markerCache.set(state.paper,[0,1,2,3].map(markerSVG).join(''));
   specs.push({key:'markers',tag:'g',attrs:{opacity:.8},html:markerCache.get(state.paper)});add('boundary','rect',{x:33,y:33,width:w-66,height:h-66,rx:1,fill:'none',stroke:'#dce1d2','stroke-width':.2,'stroke-dasharray':'1.2 2'});
   state.tools.forEach((t,i)=>add('raw-'+i,'path',{d:profile(t.points).d,class:'raw-path','data-tool':i,'data-drag-tool':i}));
   const moving=drag?.type==='tool'&&drag.remembered,paths=moving?(drag.merged?[]:drag.paths):cutPaths,owners=moving?drag.owners:cutOwners;
   paths.forEach((p,i)=>{const index=owners[i]??0;if(!state.tools[index])return;add('cut-'+i,'path',{d:profile(p).d,class:'tool-path'+(index===state.selected&&paths.length>=state.tools.length?' selected':''),'data-tool':index,'data-drag-tool':index});});
-  const selected=state.tools[state.selected];if(selected)add('selection','path',{d:profile(selected.points).d,class:'tool-selection','data-selected-tool':state.selected,'data-drag-tool':state.selected,'pointer-events':'none'});
+  const selected=state.tools[state.selected];if(selected)add('selection','path',{d:profile(selected.points).d,class:'tool-selection',visibility:cutPaths.length<state.tools.length?'visible':'hidden','data-selected-tool':state.selected,'data-drag-tool':state.selected,'pointer-events':'none'});
   state.tools.forEach((t,i)=>{const b=profile(t.points).b;add('label-'+i,'text',{x:(b.minX+b.maxX)/2,y:Math.min(h-31,b.maxY+7),'text-anchor':'middle',class:'tool-label','data-tool':i,'data-drag-tool':i},t.name);if(i===state.selected){add('dimension-line','path',{d:`M${b.minX} ${b.maxY+12}h${b.maxX-b.minX}m0 -1v2m${b.minX-b.maxX} -2v2`,fill:'none',stroke:'#d3a17c','stroke-width':.25,'data-drag-tool':i});add('dimension','text',{x:(b.minX+b.maxX)/2,y:b.maxY+17,'text-anchor':'middle',class:'dimension','data-drag-tool':i},`${(b.maxX-b.minX).toFixed(1)} mm`);}});
   state.tools.forEach((t,i)=>add('hit-'+i,'path',{d:profile(t.points).d,class:'tool-hit',fill:'transparent',stroke:'none','data-tool':i,'data-drag-tool':i}));
   state.fingers.forEach((f,i)=>add('finger-'+i,'circle',{cx:f.x,cy:f.y,r:f.r,class:'finger-circle','data-finger':i,'data-drag-tool':f.tool}));
@@ -219,7 +219,7 @@ $('printBtn').onclick=()=>{const [w,h]=PAPERS[state.paper],name=state.paper==='l
  frame.onload=()=>{const win=frame.contentWindow;frame.dataset.ready='true';win.addEventListener('afterprint',()=>{$('printBtn').focus();},{once:true});win.focus();win.print();};
  frame.srcdoc=calibrationPrintHTML(state.paper);document.body.append(frame);$('modal').close();
 };};
-function applyZoom(){zoom=limitZoom(zoom);pan=boundedPan(pan,zoom,{width:$('sheetWrap').offsetWidth,height:$('sheetWrap').offsetHeight},{width:area.clientWidth,height:area.clientHeight});$('sheetWrap').style.transform=`translate(${pan.x}px,${pan.y}px) scale(${zoom})`;$('zoomLabel').textContent=`${Math.round(zoom*100)}%`;}
+function applyZoom(){zoom=limitZoom(zoom);$('editor').style.setProperty('--trace-zoom',String(zoom));pan=boundedPan(pan,zoom,{width:$('sheetWrap').offsetWidth,height:$('sheetWrap').offsetHeight},{width:area.clientWidth,height:area.clientHeight});$('sheetWrap').style.transform=`translate(${pan.x}px,${pan.y}px) scale(${zoom})`;$('zoomLabel').textContent=`${Math.round(zoom*100)}%`;}
 $('zoomLabel').onclick=()=>$('fitBtn').click();$('zoomIn').onclick=()=>{zoom=limitZoom(zoom+.25);applyZoom();render(false);};$('zoomOut').onclick=()=>{zoom=limitZoom(zoom-.25);applyZoom();render(false);};$('fitBtn').onclick=()=>{zoom=1;pan={x:0,y:0};applyZoom();render(false);};$('gridBtn').onclick=()=>{$('canvasArea').classList.toggle('no-grid');$('gridBtn').classList.toggle('on');};document.querySelectorAll('[data-view]').forEach(b=>b.onclick=()=>{activeNode=-1;setView(b.dataset.view);});
 let editViewport=null;
 function fitRefinePreview(){const t=state.tools[state.selected];if(!t||view==='photo')return;const b=bounds(t.points),a=area.getBoundingClientRect(),base=Math.abs($('editor').getScreenCTM().a)/zoom;zoom=limitZoom(Math.min((area.clientWidth-36)/((b.maxX-b.minX+12)*base),(area.clientHeight-66)/((b.maxY-b.minY+12)*base)));pan={x:0,y:0};applyZoom();const q=new DOMPoint((b.minX+b.maxX)/2,(b.minY+b.maxY)/2).matrixTransform($('editor').getScreenCTM());pan={x:a.left+area.clientWidth/2-q.x,y:a.top+(area.clientHeight-50)/2-q.y};applyZoom();}
