@@ -1,17 +1,17 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261023-desk6';
-import {createLiveCamera} from './camera-ui.js?v=20261023-desk6';
-import {createFoamStudio} from './foam-ui.js?v=20261023-desk6';
-import {validateFoam} from './foam-model.js?v=20261023-desk6';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261023-desk6';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261023-desk6';
+import {prepareCaptureAsync} from './capture-client.js?v=20261023-desk7';
+import {createLiveCamera} from './camera-ui.js?v=20261023-desk7';
+import {createFoamStudio} from './foam-ui.js?v=20261023-desk7';
+import {validateFoam} from './foam-model.js?v=20261023-desk7';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261023-desk7';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261023-desk7';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261023-desk6';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261023-desk6';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261023-desk7';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261023-desk7';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261023-desk6',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261023-desk7',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;

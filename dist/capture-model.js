@@ -1,2 +1,2 @@
-import {autoCalibrate,warp,extract,PAPERS} from './vision.js?v=20261023-desk6';
+import {autoCalibrate,warp,extract,PAPERS} from './vision.js?v=20261023-desk7';
 export function prepareCapture(image,settings){const cal=autoCalibrate(image,settings.paper),paper=cal.paper,rect=warp(image,cal.H,...PAPERS[paper]),paths=extract(rect,paper,settings.traceMethod==='dark'?settings.brightnessThreshold:settings.threshold,settings.minToolArea,settings.traceMethod,{weakRatio:settings.weakRatio,gapMm:settings.gapMm});return {cal,paper,rect,paths};}
