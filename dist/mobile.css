@@ -249,3 +249,5 @@ body.outline-session .outline-session-bar{display:flex;align-items:center;gap:10
 .outline-session-bar button{min-height:40px}
 body.outline-session #uploadBtn,body.outline-session #liveCameraBtn,body.outline-session .capture-actions,body.outline-session #addCaptureTool,body.outline-session #saveCaptureTool,body.outline-session #addAllToFoam{display:none!important}
 .outline-session-bar .secondary{background:transparent;color:#f4f7ef;border:1px solid #f4f7ef99}
+
+.build-tag{font-size:10px;color:#9aa48c;margin-left:6px;align-self:center}
