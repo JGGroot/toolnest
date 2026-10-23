@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk8';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk8';
-import {edgeSilhouette} from './segmentation.js?v=20261023-desk8';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk9';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk9';
+import {edgeSilhouette} from './segmentation.js?v=20261023-desk9';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -149,10 +149,23 @@ function extractExtended(image,paper,threshold,minArea,method,options){
  const valid=new Uint8Array(w*h);for(let i=0;i<valid.length;i++)valid[i]=data[i*4+3]?1:0;
  let mask;
  if(method==='edges'){
-  const band=px(4),dots=px(1.5),lines=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band}));
+  const band=px(3),dots=px(1.2),paperEdges=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band})),lines=[];
   for(const [axis,at] of [['x',33],['x',pw-33],['y',33],['y',ph-33]])lines.push({axis,at:axis==='x'?X(at):Y(at),band:dots,from:axis==='x'?Y(33):X(33),to:axis==='x'?Y(ph-33):X(pw-33)});
   const blank=[0,1,2,3].map(id=>{const b=bounds(markerCorners(id,paper));return {left:Math.floor(X(b.minX-3)),right:Math.ceil(X(b.maxX+3)),top:Math.floor(Y(b.minY-3)),bottom:Math.ceil(Y(b.maxY+3))};});
-  mask=edgeSilhouette(image,{left:0,right:w,top:0,bottom:h},threshold,{...options,pixelsPerMm:s,valid,suppress:lines,blank,floodFromBorder:true});
+  // Paint the printed dotted boundary out of a copy by blending across each band from both sides.
+  // A faint line on white vanishes; a tool crossing it stays dark on both sides, and a
+  // tool edge lying along it remains a strong dark-to-light ramp, so outlines never break.
+  const clean=new Uint8ClampedArray(data);
+  for(const l of lines){const vertical=l.axis==='x',a0=Math.max(0,Math.floor(l.at-l.band)-1),a1=Math.min((vertical?w:h)-1,Math.ceil(l.at+l.band)+1);if(a1-a0<2)continue;
+   for(let b=Math.max(0,Math.floor(l.from));b<=Math.min((vertical?h:w)-1,Math.ceil(l.to));b++){const at=a=>4*(vertical?b*w+a:a*w+b),p0=at(a0),p1=at(a1);for(let a=a0+1;a<a1;a++){const t=(a-a0)/(a1-a0),q=at(a);for(let c=0;c<3;c++)clean[q+c]=data[p0+c]*(1-t)+data[p1+c]*t;}}}
+  // The sheet margin carries printed text and the scale bar. A grey-level closing
+  // there (max then min filter) removes dark strokes thinner than ~1.6 mm while
+  // wide dark tool bodies keep their edges.
+  {const r=Math.max(1,Math.round(.8*s)),g=new Float32Array(w*h),t=new Float32Array(w*h),u=new Float32Array(w*h);for(let i=0;i<w*h;i++)g[i]=clean[i*4]*.299+clean[i*4+1]*.587+clean[i*4+2]*.114;
+   const pass=(src,dst,horizontal,max)=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=max?-1:1e9;for(let k=-r;k<=r;k++){const xx=horizontal?Math.min(w-1,Math.max(0,x+k)):x,yy=horizontal?y:Math.min(h-1,Math.max(0,y+k)),q=src[yy*w+xx];v=max?Math.max(v,q):Math.min(v,q);}dst[y*w+x]=v;}};
+   pass(g,t,true,true);pass(t,u,false,true);pass(u,t,true,false);pass(t,u,false,false);
+   for(let y=0;y<h;y++)for(let x=0;x<w;x++){const mx=x/s+ox,my=y/s+oy;if(mx<0||my<0||mx>pw||my>ph||(mx>34.5&&mx<pw-34.5&&my>34.5&&my<ph-34.5))continue;const i=y*w+x,v=u[i];if(v>g[i]+.5)clean[i*4]=clean[i*4+1]=clean[i*4+2]=v;}}
+  mask=edgeSilhouette({width:w,height:h,data:clean},{left:0,right:w,top:0,bottom:h},threshold,{...options,pixelsPerMm:s,valid,blank,suppress:paperEdges,floodFromBorder:true});
  }else{
   // A dark table would read as one huge "tool", so brightness tracing stays on the sheet.
   const g=gray(image);mask=new Uint8Array(g.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const mx=x/s+ox,my=y/s+oy;if(mx<33||mx>pw-33||my<33||my>ph-33)continue;mask[y*w+x]=g[y*w+x]<threshold?1:0;}

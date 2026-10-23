@@ -7,10 +7,9 @@ export function edgeSilhouette(image,roi,sensitivity=160,options={}){
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=0;for(let k=-2;k<=2;k++)v+=tmp[Math.max(0,Math.min(h-1,y+k))*w+x]*kernel[k+2];blur[y*w+x]=v;}
  const mag=new Float32Array(n),direction=new Uint8Array(n),high=Math.max(12,50+(160-sensitivity)*.6),low=high*Math.max(.1,Math.min(.85,options.weakRatio??.4));
  for(let y=roi.top+1;y<roi.bottom-1;y++)for(let x=roi.left+1;x<roi.right-1;x++){const p=y*w+x,dx=blur[p-w+1]+2*blur[p+1]+blur[p+w+1]-blur[p-w-1]-2*blur[p-1]-blur[p+w-1],dy=blur[p+w-1]+2*blur[p+w]+blur[p+w+1]-blur[p-w-1]-2*blur[p-w]-blur[p-w+1],ax=Math.abs(dx),ay=Math.abs(dy);mag[p]=ax+ay;direction[p]=ay<ax*.4142?0:ay>ax*2.4142?2:dx*dy>0?1:3;}
- // Extended captures: ignore pixels the photo does not cover, printed sheet
- // features (paper edges, dotted boundary) along their own direction, and
- // blanked areas such as the calibration markers. Tool edges crossing a
- // suppressed line run across it, so they survive.
+ // Extended captures: ignore pixels the photo does not cover, blanked areas
+ // such as the calibration markers, and the paper's own edges along their
+ // direction (tool edges crossing the paper edge run across it, so they survive).
  const covered=options.valid?morph(options.valid,w,h,3,false):null;
  if(covered)for(let p=0;p<n;p++)if(!covered[p])mag[p]=0;
  for(const r of options.blank||[])for(let y=Math.max(0,r.top);y<Math.min(h,r.bottom);y++)for(let x=Math.max(0,r.left);x<Math.min(w,r.right);x++)mag[y*w+x]=0;
