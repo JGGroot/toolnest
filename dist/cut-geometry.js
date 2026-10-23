@@ -34,7 +34,7 @@ export function vectorCutPaths(polys,fingers,[width,height],clearance){
  // Add circular grips AFTER refining and offsetting the body. Never simplify
  // the resulting circle or run a smoothing pass across its intersection joins.
  if(fingers.length)paths=combine(paths.concat(fingers.map(f=>encode(circleRing(f)))));
- paths=combine(paths,[encode([[0,0],[width,0],[width,height],[0,height]])],Clipper.ClipType.ctIntersection);
+ paths=combine(paths,[encode([[-1000,-1000],[width+1000,-1000],[width+1000,height+1000],[-1000,height+1000]])],Clipper.ClipType.ctIntersection);
  // Tool pockets are silhouettes; enclosed holes in the photographed body do
  // not leave uncut islands. This matches the trace extractor's outer rings.
  return paths.filter(p=>Clipper.Clipper.Area(p)>4*SCALE*SCALE).map(p=>p.map(({X,Y})=>[X/SCALE,Y/SCALE])).sort((a,b)=>Math.abs(area(b))-Math.abs(area(a)));

@@ -1,4 +1,4 @@
-import {validPhoto} from './stock-photo-model.js?v=20261023-desk7';
+import {validPhoto} from './stock-photo-model.js?v=20261023-desk8';
 import clip from './vendor/polygon-clipping.js';
 export const DEFAULT_FOAM={width:600,height:400,thickness:50,base:5,margin:10,spacing:8};
 const finite=n=>typeof n==='number'&&Number.isFinite(n);

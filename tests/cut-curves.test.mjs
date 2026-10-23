@@ -22,13 +22,15 @@ test('Finger arcs retain their radius and sub-0.006 mm chords at every cleanup/s
   assert.ok(segments>15,`${mode}/${passes}/${r}: too few circular arc segments`);
  }
 });
-test('Vector clearance is continuous in mm, includes erosion and reversals, and clips to the paper',()=>{
+test('Vector clearance is continuous in mm, includes erosion and reversals, and keeps tools that extend past the sheet',()=>{
  for(const delta of [-.31,0,.07,1.13])for(const reversed of [false,true]){
   const [ring]=makeCutPaths([reversed?[...body].reverse():body],[],'a4',delta,0);
   const b=bounds(ring);assert.ok(Math.abs(b.minX-(50-delta))<.00002);assert.ok(Math.abs(b.maxY-(160+delta))<.00002);
  }
  const paths=makeCutPaths([body],[{x:1,y:1,r:8},{x:70,y:100,r:8},{x:70,y:106,r:8}],'a4',1,3,{mode:'fair'});
- for(const ring of paths){assert.ok(ring.flat().every(Number.isFinite));assert.equal(hasCrossings(ring),false);const b=bounds(ring);assert.ok(b.minX>=0&&b.minY>=0&&b.maxX<=210&&b.maxY<=297);}
+ for(const ring of paths){assert.ok(ring.flat().every(Number.isFinite));assert.equal(hasCrossings(ring),false);}
+ const off=bounds(makeCutPaths([[[-30,20],[40,20],[40,50],[-30,50]]],[],'a4',0,0).flat());assert.ok(Math.abs(off.minX+30)<.01,'a tool hanging off the sheet edge is kept, not clipped');
+ const far=bounds(makeCutPaths([[[-1500,10],[-1400,10],[-1400,40],[-1500,40]],body],[],'a4',0,0).flat());assert.ok(far.minX>=-1000,'geometry far from the sheet is still clipped to the working area');
 });
 test('Rounded style uses tangent corner curves, leaving long straight spans and dimensions intact',()=>{
  const p=smoothOutline(body,3,'round',{radius:1});assert.ok(p.length>32);

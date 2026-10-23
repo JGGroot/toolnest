@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk7';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk7';
-import {edgeSilhouette} from './segmentation.js';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk8';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk8';
+import {edgeSilhouette} from './segmentation.js?v=20261023-desk8';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -129,7 +129,44 @@ function untangle(ring,reference){
  if(Math.sign(polygonArea(best))!==Math.sign(polygonArea(reference)))best=best.reverse();best=simplify(best,.03);return hasCrossings(best)?null:best;
 }
 function refinePaths(paths,image,scale,options){if(options.snapEdges===false||!paths.length)return paths;const field=blurGray(image);return paths.map(p=>snapToEdges(p,field,scale)).sort((a,b)=>polygonArea(b)-polygonArea(a));}
-export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){return refinePaths(extractMask(image,paper,threshold,minArea,method,options),image,image.width/PAPERS[paper][0],options);}
+// Rectify the sheet plus as much of the surrounding surface as the photo shows
+// (up to EXTEND_MM on each side), so tools longer than the sheet can be traced
+// while all four markers are visible. Alpha 0 marks pixels outside the photo.
+// The result records its millimetre origin relative to the sheet's top-left.
+const EXTEND_MM=200,EXTEND_PIXELS=4.5e6;
+export function warpExtended(image,H,paper='a4',scale=3){
+ const [pw,ph]=PAPERS[paper],sheet=[[0,0],[pw,0],[pw,ph],[0,ph]],inv=homography(sheet.map(p=>project(H,p)),sheet);
+ const edge=[];for(let i=0;i<=16;i++){const t=i/16;edge.push([t*image.width,0],[t*image.width,image.height],[0,t*image.height],[image.width,t*image.height]);}
+ const seen=edge.map(p=>project(inv,p)).filter(p=>p.every(Number.isFinite)),lo=v=>Math.max(-EXTEND_MM,Math.min(0,v)),clampX=v=>Math.min(pw+EXTEND_MM,Math.max(pw,v)),clampY=v=>Math.min(ph+EXTEND_MM,Math.max(ph,v));
+ let x0=lo(Math.min(...seen.map(p=>p[0]))),y0=lo(Math.min(...seen.map(p=>p[1]))),x1=clampX(Math.max(...seen.map(p=>p[0]))),y1=clampY(Math.max(...seen.map(p=>p[1])));
+ x0=Math.floor(x0);y0=Math.floor(y0);x1=Math.ceil(x1);y1=Math.ceil(y1);
+ const s=Math.min(scale,Math.max(2,Math.sqrt(EXTEND_PIXELS/((x1-x0)*(y1-y0))))),w=Math.round((x1-x0)*s),h=Math.round((y1-y0)*s),data=new Uint8ClampedArray(w*h*4),src=image.data;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const [u,v]=project(H,[x0+x/s,y0+y/s]),ix=Math.floor(u),iy=Math.floor(v),j=(y*w+x)*4;if(!(ix>=0&&iy>=0&&ix+1<image.width&&iy+1<image.height)){data[j]=data[j+1]=data[j+2]=255;data[j+3]=0;continue;}const dx=u-ix,dy=v-iy,k=(iy*image.width+ix)*4;for(let c=0;c<3;c++)data[j+c]=src[k+c]*(1-dx)*(1-dy)+src[k+4+c]*dx*(1-dy)+src[k+image.width*4+c]*(1-dx)*dy+src[k+image.width*4+4+c]*dx*dy;data[j+3]=255;}
+ return {width:w,height:h,data,origin:[x0,y0],scale:s,paper};
+}
+function extractExtended(image,paper,threshold,minArea,method,options){
+ const [pw,ph]=PAPERS[paper],s=image.scale,[ox,oy]=image.origin,{width:w,height:h,data}=image,px=v=>v*s,X=v=>(v-ox)*s,Y=v=>(v-oy)*s;
+ const valid=new Uint8Array(w*h);for(let i=0;i<valid.length;i++)valid[i]=data[i*4+3]?1:0;
+ let mask;
+ if(method==='edges'){
+  const band=px(4),dots=px(1.5),lines=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band}));
+  for(const [axis,at] of [['x',33],['x',pw-33],['y',33],['y',ph-33]])lines.push({axis,at:axis==='x'?X(at):Y(at),band:dots,from:axis==='x'?Y(33):X(33),to:axis==='x'?Y(ph-33):X(pw-33)});
+  const blank=[0,1,2,3].map(id=>{const b=bounds(markerCorners(id,paper));return {left:Math.floor(X(b.minX-3)),right:Math.ceil(X(b.maxX+3)),top:Math.floor(Y(b.minY-3)),bottom:Math.ceil(Y(b.maxY+3))};});
+  mask=edgeSilhouette(image,{left:0,right:w,top:0,bottom:h},threshold,{...options,pixelsPerMm:s,valid,suppress:lines,blank,floodFromBorder:true});
+ }else{
+  // A dark table would read as one huge "tool", so brightness tracing stays on the sheet.
+  const g=gray(image);mask=new Uint8Array(g.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const mx=x/s+ox,my=y/s+oy;if(mx<33||mx>pw-33||my<33||my>ph-33)continue;mask[y*w+x]=g[y*w+x]<threshold?1:0;}
+ }
+ const near=(x,y)=>{const cx=Math.round(x*s),cy=Math.round(y*s);for(let dy=-4;dy<=4;dy+=2)for(let dx=-4;dx<=4;dx+=2){const a=cx+dx,b=cy+dy;if(a<0||b<0||a>=w||b>=h||!valid[b*w+a])return true;}return false;};
+ const inner=([x,y])=>x+ox>33.5&&x+ox<pw-33.5&&y+oy>33.5&&y+oy<ph-33.5;
+ // Straight tools may have no vertex on the sheet, so sample along each edge.
+ const crossesSheet=p=>p.some((a,i)=>{const b=p[(i+1)%p.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])));for(let k=0;k<=n;k++)if(inner([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]))return true;return false;});
+ const paths=contours(mask,w,h,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);
+  // A tool must start on the sheet, be fully in the photo, and not be the sheet itself.
+  return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&crossesSheet(p)&&!p.some(([x,y])=>near(x,y))&&!(b.maxX-b.minX>pw*.95&&b.maxY-b.minY>ph*.95);});
+ return refinePaths(paths,image,s,options).map(p=>p.map(([x,y])=>[x+ox,y+oy]));
+}
+export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){if(image.origin)return extractExtended(image,paper,threshold,minArea,method,options);return refinePaths(extractMask(image,paper,threshold,minArea,method,options),image,image.width/PAPERS[paper][0],options);}
 function extractMask(image,paper,threshold,minArea,method,options){if(method==='edges'){const [pw,ph]=PAPERS[paper],s=image.width/pw,roi={left:Math.ceil(33*s),right:Math.floor((pw-33)*s),top:Math.ceil(33*s),bottom:Math.floor((ph-33)*s)},mask=edgeSilhouette(image,roi,threshold,{...options,pixelsPerMm:s});return contours(mask,image.width,image.height,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&b.minX>33.5&&b.maxX<pw-33.5&&b.minY>33.5&&b.maxY<ph-33.5;});}const [pw,ph]=PAPERS[paper],s=image.width/pw,g=gray(image),mask=new Uint8Array(g.length);for(let y=0;y<image.height;y++)for(let x=0;x<image.width;x++){if(x/s<33||x/s>pw-33||y/s<33||y/s>ph-33)continue;mask[y*image.width+x]=g[y*image.width+x]<threshold?1:0;}return contours(mask,image.width,image.height,s,minArea);}
 function inside(p,poly){let c=false;for(let i=0,j=poly.length-1;i<poly.length;j=i++){const a=poly[i],b=poly[j];if((a[1]>p[1])!==(b[1]>p[1])&&p[0]<(b[0]-a[0])*(p[1]-a[1])/(b[1]-a[1])+a[0])c=!c;}return c;}
 export function bounds(p){return {minX:Math.min(...p.map(v=>v[0])),maxX:Math.max(...p.map(v=>v[0])),minY:Math.min(...p.map(v=>v[1])),maxY:Math.max(...p.map(v=>v[1]))};}

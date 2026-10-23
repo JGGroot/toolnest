@@ -1,24 +1,24 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261023-desk7';
-import {createLiveCamera} from './camera-ui.js?v=20261023-desk7';
-import {createFoamStudio} from './foam-ui.js?v=20261023-desk7';
-import {validateFoam} from './foam-model.js?v=20261023-desk7';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261023-desk7';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261023-desk7';
+import {prepareCaptureAsync} from './capture-client.js?v=20261023-desk8';
+import {createLiveCamera} from './camera-ui.js?v=20261023-desk8';
+import {createFoamStudio} from './foam-ui.js?v=20261023-desk8';
+import {validateFoam} from './foam-model.js?v=20261023-desk8';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261023-desk8';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261023-desk8';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261023-desk7';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261023-desk7';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261023-desk8';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261023-desk8';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261023-desk7',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261023-desk8',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
 function saveDraft(){if(outlineSession)return;clearTimeout(draftTimer);draftTimer=setTimeout(()=>{try{localStorage.setItem('toolnest.trace.v2',JSON.stringify(projectData(false)));}catch{}},350);}
 const names=['Combination wrench','Long-nose pliers','Slotted screwdriver'];
 function toast(s){$('toast').textContent=s;$('toast').classList.add('visible');clearTimeout(toast.timer);toast.timer=setTimeout(()=>$('toast').classList.remove('visible'),4200);}
-function imageURL(im){const c=document.createElement('canvas');c.width=im.width;c.height=im.height;c.getContext('2d').putImageData(new ImageData(im.data,im.width,im.height),0,0);return c.toDataURL('image/jpeg',.87);}
+function imageURL(im){const c=document.createElement('canvas');c.width=im.width;c.height=im.height;let pixels=im.data;if(im.origin){pixels=new Uint8ClampedArray(im.data);for(let i=3;i<pixels.length;i+=4)pixels[i]=255;}c.getContext('2d').putImageData(new ImageData(pixels,im.width,im.height),0,0);return c.toDataURL('image/jpeg',.87);}
 function markerSVG(id){const [x,y]=markerCorners(id,state.paper)[0];let s=`<rect x="${x-1.5}" y="${y-1.5}" width="23" height="23" fill="white"/>`;markerBits(id).forEach((row,j)=>row.forEach((v,i)=>{if(v)s+=`<rect x="${x+i*2.5}" y="${y+j*2.5}" width="2.505" height="2.505" fill="#292e26"/>`;}));return s;}
 function sheetSVG(){return calibrationSVG(state.paper);}
 function download(text,name,type){const url=URL.createObjectURL(new Blob([text],{type})),a=document.createElement('a');a.href=url;a.download=name;a.click();setTimeout(()=>URL.revokeObjectURL(url),5000);}
@@ -28,7 +28,7 @@ function restore(s){settingEdit=null;const d=JSON.parse(s);geometryTraceKey=d.ge
 function syncInputs(){for(const id of [...Object.keys(DEFAULT_SETTINGS).filter(k=>k!=='brightnessThreshold'),'paper'])if($(id))$(id).value=state[id];$('threshold').value=state.traceMethod==='dark'?state.brightnessThreshold:state.threshold;}
 function previewUI(){const status=$('previewStatus');status.dataset.state=previewError?'error':previewPending?'updating':'ready';status.textContent=previewError?'Preview failed':previewPending?'Updating…':state.tools.length?'Live':'No outline';$('editor').setAttribute('aria-busy',String(previewPending));$('exportBtn').disabled=previewPending||!!drag?.remembered||!cutPaths.length;$('saveBtn').disabled=!!previewError||previewPending||!!drag?.remembered||(!state.tools.length&&!foamStudio?.hasTools());for(const id of ['saveCaptureTool','addCaptureTool','addAllToFoam'])$(id).disabled=!!previewError||previewPending||!state.tools.length;}
 function invalidatePreview(){previewError='';previewRevision++;previewQueue=null;previewPending=false;settingEdit=null;}
-function initPreviewImage(){invalidatePreview();if(previewWorker&&!previewWorkerFailed){const image=corrected?{width:corrected.width,height:corrected.height,data:new Uint8ClampedArray(corrected.data)}:null;previewWorker.postMessage({type:'image',image},image?[image.data.buffer]:[]);}}
+function initPreviewImage(){invalidatePreview();if(previewWorker&&!previewWorkerFailed){const image=corrected?{width:corrected.width,height:corrected.height,origin:corrected.origin,scale:corrected.scale,paper:corrected.paper,data:new Uint8ClampedArray(corrected.data)}:null;previewWorker.postMessage({type:'image',image},image?[image.data.buffer]:[]);}}
 function requestPreview(){if(!state.tools.length&&!corrected){invalidatePreview();cutPaths=[];previewUI();return;}previewError='';previewPending=true;previewQueue={id:++previewRevision,type:'preview',state:{...state,tools:state.tools.map(t=>({...t})),fingers:state.fingers.map(f=>({...f}))},retrace:!!corrected&&traceKey(state)!==geometryTraceKey};previewUI();pumpPreview();}
 function pumpPreview(){if(previewInFlight||!previewQueue)return;const job=previewQueue;previewQueue=null;previewInFlight=job;if(previewWorker&&!previewWorkerFailed)previewWorker.postMessage(job);else setTimeout(()=>{try{finishPreview({id:job.id,result:computePreview(job.state,corrected,job.retrace)});}catch(e){finishPreview({id:job.id,error:e.message});}},0);}
 function pathOwners(paths,tools){const centers=tools.map(t=>{const b=profile(t.points).b;return [(b.minX+b.maxX)/2,(b.minY+b.maxY)/2];});return paths.map(p=>{const b=profile(p).b,cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2;let owner=0,best=Infinity;centers.forEach(([x,y],i)=>{const d=Math.hypot(cx-x,cy-y);if(d<best){best=d;owner=i;}});return owner;});}
@@ -61,14 +61,19 @@ function renderFingerList(){
 function el(tag,attrs={},text){const e=document.createElementNS(NS,tag);for(const [k,v] of Object.entries(attrs))e.setAttribute(k,v);if(text!==undefined)e.textContent=text;return e;}
 let traceProfileCache=new WeakMap(),markerCache=new Map();const traceScene=new SVGScene($('editor'));
 function profile(points){let value=traceProfileCache.get(points);if(!value){value={d:pathD(points),b:bounds(points)};traceProfileCache.set(points,value);}return value;}
+// Tools may extend past the printed sheet; widen the view (keeping the sheet's
+// aspect ratio) so the whole outline stays visible.
+function traceViewBox(w,h){let x0=0,y0=0,x1=w,y1=h;for(const t of state.tools){const b=profile(t.points).b;x0=Math.min(x0,b.minX-6);y0=Math.min(y0,b.minY-6);x1=Math.max(x1,b.maxX+6);y1=Math.max(y1,b.maxY+6);}
+ const extended=x0<0||y0<0||x1>w||y1>h;document.querySelectorAll('.ruler').forEach(r=>r.hidden=extended);if(!extended)return `0 0 ${w} ${h}`;
+ let bw=x1-x0,bh=y1-y0;if(bw/bh>w/h){const nh=bw*h/w;y0-=(nh-bh)/2;bh=nh;}else{const nw=bh*w/h;x0-=(nw-bw)/2;bw=nw;}return `${x0} ${y0} ${bw} ${bh}`;}
 function renderTraceScene(){
  const [w,h]=PAPERS[state.paper],svg=$('editor'),photo=view==='photo'&&sourceURL;attr(svg,'data-view',view);
- attr(svg,'viewBox',photo?`0 0 ${source.width} ${source.height}`:`0 0 ${w} ${h}`);const ratio=`${w}/${h}`;if($('sheetWrap').style.aspectRatio!==ratio)$('sheetWrap').style.aspectRatio=ratio;
+ attr(svg,'viewBox',photo?`0 0 ${source.width} ${source.height}`:traceViewBox(w,h));const ratio=`${w}/${h}`;if($('sheetWrap').style.aspectRatio!==ratio)$('sheetWrap').style.aspectRatio=ratio;
  const has=state.tools.length>0||source;$('sheetWrap').hidden=!has;$('emptyState').hidden=!!has;
  const specs=[],add=(key,tag,attrs,text)=>specs.push({key,tag,attrs,text}),ppuOf=()=>Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1));
  if(photo){add('photo','image',{href:sourceURL,width:source.width,height:source.height});(state.cal?.markers||[]).forEach((m,i)=>add('marker-'+i,'polygon',{points:m.corners.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#a8d366','stroke-width':3}));}
  else{
-  add('sheet','rect',{width:w,height:h,fill:'#fdfdf9'});if(view==='overlay'&&correctedURL)add('photo','image',{href:correctedURL,width:w,height:h,opacity:1});
+  add('sheet','rect',{width:w,height:h,fill:'#fdfdf9'});if(view==='overlay'&&correctedURL)add('photo','image',{href:correctedURL,...(corrected?.origin?{x:corrected.origin[0],y:corrected.origin[1],width:corrected.width/corrected.scale,height:corrected.height/corrected.scale,preserveAspectRatio:'none'}:{width:w,height:h}),opacity:1});
   if(!markerCache.has(state.paper))markerCache.set(state.paper,[0,1,2,3].map(markerSVG).join(''));
   specs.push({key:'markers',tag:'g',attrs:{opacity:.8},html:markerCache.get(state.paper)});add('boundary','rect',{x:33,y:33,width:w-66,height:h-66,rx:1,fill:'none',stroke:'#dce1d2','stroke-width':.2,'stroke-dasharray':'1.2 2'});
   state.tools.forEach((t,i)=>add('raw-'+i,'path',{d:profile(t.points).d,class:'raw-path','data-tool':i,'data-drag-tool':i}));
@@ -123,7 +128,7 @@ function flushTracePaint(){
  if(firstMove){drag.before=snapshot();remember(drag.before);drag.remembered=true;invalidatePreview();area.classList.add('is-dragging');previewUI();}
  const p=svgPoint(e,drag.inverse),[w,h]=PAPERS[state.paper],dx=p[0]-drag.start[0],dy=p[1]-drag.start[1];
  if(drag.type==='tool'){
-  const b=drag.originalBounds;drag.tx=Math.max(2-b.minX,Math.min(w-2-b.maxX,dx));drag.ty=Math.max(2-b.minY,Math.min(h-2-b.maxY,dy));
+  const b=drag.originalBounds;drag.tx=Math.max(Math.min(2,b.minX)-b.minX,Math.min(Math.max(w-2,b.maxX)-b.maxX,dx));drag.ty=Math.max(Math.min(2,b.minY)-b.minY,Math.min(Math.max(h-2,b.maxY)-b.maxY,dy));
   if(!drag.layer){
    if(drag.merged)render(false);
    drag.layer=$('editor').querySelector(`[data-trace-group="${drag.index}"]`);drag.layer.classList.add('drag-layer');
@@ -132,7 +137,7 @@ function flushTracePaint(){
   // throughout the gesture and are translated exactly once on release.
   drag.layer.style.transform=`translate(${drag.tx}px, ${drag.ty}px)`;
  }else{
-  if(drag.type==='node'){const points=state.tools[state.selected].points.slice();points[drag.index]=[Math.max(1,Math.min(w-1,drag.original[0]+dx)),Math.max(1,Math.min(h-1,drag.original[1]+dy))];state.tools[state.selected].points=points;}
+  if(drag.type==='node'){const points=state.tools[state.selected].points.slice();points[drag.index]=[Math.max(-200,Math.min(w+200,drag.original[0]+dx)),Math.max(-200,Math.min(h+200,drag.original[1]+dy))];state.tools[state.selected].points=points;}
   if(drag.type==='finger'){
    const f=state.fingers[drag.index],tool=state.tools[f.tool];
    // Constrain to the edge continuously, using the same position for the
@@ -261,8 +266,7 @@ function editOutline({shape,name},onDone){
  if(busy)return toast('Wait for the current photo to finish processing.');
  if(outlineSession)endOutlineSession(false);
  const [W,H]=PAPERS.a4,rings=shape.map(poly=>poly[0].slice(0,poly[0].length-(poly[0].length>1&&poly[0][0][0]===poly[0].at(-1)[0]&&poly[0][0][1]===poly[0].at(-1)[1]?1:0))),b=bounds(rings.flat()),w=b.maxX-b.minX,h=b.maxY-b.minY,room=[W-8,H-8];
- const turn=w<=room[0]&&h<=room[1]?false:h<=room[0]&&w<=room[1]?true:null;
- if(turn===null)return toast(`This tool is ${w.toFixed(0)} × ${h.toFixed(0)} mm, larger than the outline editor sheet (${room[0]} × ${room[1]} mm).`);
+ const turn=!(w<=room[0]&&h<=room[1])&&h<=room[0]&&w<=room[1];
  const sw=turn?h:w,sh=turn?w:h,ox=(W-sw)/2,oy=(H-sh)/2;
  const toSheet=([x,y])=>{x-=b.minX;y-=b.minY;return turn?[ox+h-y,oy+x]:[ox+x,oy+y];},fromSheet=([x,y])=>{x-=ox;y-=oy;return turn?[y+b.minX,h-x+b.minY]:[x+b.minX,y+b.minY];};
  invalidatePreview();
