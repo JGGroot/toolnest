@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk12';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk12';
-import {edgeSilhouette} from './segmentation.js?v=20261023-desk12';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk13';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk13';
+import {edgeSilhouette} from './segmentation.js?v=20261023-desk13';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -130,10 +130,10 @@ function untangle(ring,reference){
 }
 function refinePaths(paths,image,scale,options){if(options.snapEdges===false||!paths.length)return paths;const field=blurGray(image);return paths.map(p=>snapToEdges(p,field,scale)).sort((a,b)=>polygonArea(b)-polygonArea(a));}
 // Rectify the sheet plus as much of the surrounding surface as the photo shows
-// (up to EXTEND_MM on each side), so tools longer than the sheet can be traced
+// (up to EXTEND_MM on each side, at no less than 2 px/mm), so tools longer than the sheet can be traced
 // while all four markers are visible. Alpha 0 marks pixels outside the photo.
 // The result records its millimetre origin relative to the sheet's top-left.
-const EXTEND_MM=200,EXTEND_PIXELS=4.5e6;
+const EXTEND_MM=400,EXTEND_PIXELS=4.5e6;
 export function warpExtended(image,H,paper='a4',scale=3){
  const [pw,ph]=PAPERS[paper],sheet=[[0,0],[pw,0],[pw,ph],[0,ph]],inv=homography(sheet.map(p=>project(H,p)),sheet);
  const edge=[];for(let i=0;i<=16;i++){const t=i/16;edge.push([t*image.width,0],[t*image.width,image.height],[0,t*image.height],[image.width,t*image.height]);}
@@ -149,7 +149,7 @@ function extractExtended(image,paper,threshold,minArea,method,options){
  const valid=new Uint8Array(w*h);for(let i=0;i<valid.length;i++)valid[i]=data[i*4+3]?1:0;
  let mask;
  {
-  const band=px(3),dots=px(1.2),paperEdges=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band})),lines=[];
+  const band=px(3),dots=px(1.2),paperEdges=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,probe:Math.max(2,Math.round(px(1.5))),from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band})),lines=[];
   for(const [axis,at] of [['x',33],['x',pw-33],['y',33],['y',ph-33]])lines.push({axis,at:axis==='x'?X(at):Y(at),band:dots,from:axis==='x'?Y(33):X(33),to:axis==='x'?Y(ph-33):X(pw-33)});
   const blank=[0,1,2,3].map(id=>{const b=bounds(markerCorners(id,paper));return {left:Math.floor(X(b.minX-3)),right:Math.ceil(X(b.maxX+3)),top:Math.floor(Y(b.minY-3)),bottom:Math.ceil(Y(b.maxY+3))};});
   // Paint the printed dotted boundary out of a copy by blending across each band from both sides.
@@ -178,8 +178,11 @@ function extractExtended(image,paper,threshold,minArea,method,options){
  // Straight tools may have no vertex on the sheet, so sample along each edge.
  const crossesSheet=p=>p.some((a,i)=>{const b=p[(i+1)%p.length],n=Math.max(1,Math.ceil(Math.hypot(b[0]-a[0],b[1]-a[1])));for(let k=0;k<=n;k++)if(inner([a[0]+(b[0]-a[0])*k/n,a[1]+(b[1]-a[1])*k/n]))return true;return false;});
  const paths=contours(mask,w,h,s,minArea).filter(p=>{const b=bounds(p),area=polygonArea(p);
-  // A tool must start on the sheet, be fully in the photo, and not be the sheet itself.
-  return area/((b.maxX-b.minX)*(b.maxY-b.minY))>.12&&crossesSheet(p)&&!p.some(([x,y])=>near(x,y))&&!(b.maxX-b.minX>pw*.95&&b.maxY-b.minY>ph*.95);});
+  // A tool must start on the sheet, be fully in the photo, not be the sheet itself, and be
+  // wider on average than printed lines (2·area/perimeter). Bounding-box fill would reject
+  // long diagonal tools.
+  const perimeter=p.reduce((t,a,i)=>{const c=p[(i+1)%p.length];return t+Math.hypot(c[0]-a[0],c[1]-a[1]);},0);
+  return 2*area/perimeter>1.5&&crossesSheet(p)&&!p.some(([x,y])=>near(x,y))&&!(b.maxX-b.minX>pw*.95&&b.maxY-b.minY>ph*.95);});
  return refinePaths(paths,image,s,options).map(p=>p.map(([x,y])=>[x+ox,y+oy]));
 }
 export function extract(image,paper='a4',threshold=160,minArea=20,method='edges',options={}){if(image.origin)return extractExtended(image,paper,threshold,minArea,method,options);return refinePaths(extractMask(image,paper,threshold,minArea,method,options),image,image.width/PAPERS[paper][0],options);}

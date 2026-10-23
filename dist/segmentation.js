@@ -9,11 +9,12 @@ export function edgeSilhouette(image,roi,sensitivity=160,options={}){
  for(let y=roi.top+1;y<roi.bottom-1;y++)for(let x=roi.left+1;x<roi.right-1;x++){const p=y*w+x,dx=blur[p-w+1]+2*blur[p+1]+blur[p+w+1]-blur[p-w-1]-2*blur[p-1]-blur[p+w-1],dy=blur[p+w-1]+2*blur[p+w]+blur[p+w+1]-blur[p-w-1]-2*blur[p-w]-blur[p-w+1],ax=Math.abs(dx),ay=Math.abs(dy);mag[p]=ax+ay;direction[p]=ay<ax*.4142?0:ay>ax*2.4142?2:dx*dy>0?1:3;}
  // Extended captures: ignore pixels the photo does not cover, blanked areas
  // such as the calibration markers, and the paper's own edges along their
- // direction (tool edges crossing the paper edge run across it, so they survive).
+ // direction. A paper edge is light on both sides; an edge with a dark side
+ // belongs to a tool (e.g. a tool end resting on the paper edge) and is kept.
  const covered=options.valid?morph(options.valid,w,h,3,false):null;
  if(covered)for(let p=0;p<n;p++)if(!covered[p])mag[p]=0;
  for(const r of options.blank||[])for(let y=Math.max(0,r.top);y<Math.min(h,r.bottom);y++)for(let x=Math.max(0,r.left);x<Math.min(w,r.right);x++)mag[y*w+x]=0;
- for(const line of options.suppress||[]){const vertical=line.axis==='x',lo=Math.max(0,Math.floor(line.at-line.band)),hi=Math.ceil(line.at+line.band),from=Math.max(0,Math.floor(line.from)),to=Math.ceil(line.to);for(let a=lo;a<=hi;a++)for(let b=from;b<=to;b++){const x=vertical?a:b,y=vertical?b:a;if(x>=w||y>=h)continue;const p=y*w+x;if(direction[p]===(vertical?0:2))mag[p]=0;}}
+ for(const line of options.suppress||[]){const vertical=line.axis==='x',lo=Math.max(0,Math.floor(line.at-line.band)),hi=Math.ceil(line.at+line.band),from=Math.max(0,Math.floor(line.from)),to=Math.ceil(line.to);for(let a=lo;a<=hi;a++)for(let b=from;b<=to;b++){const x=vertical?a:b,y=vertical?b:a;if(x>=w||y>=h)continue;const p=y*w+x;if(direction[p]!==(vertical?0:2))continue;const d=line.probe||0,q1=vertical?p-d:p-d*w,q2=vertical?p+d:p+d*w;if(d&&(q1<0||q2>=n||Math.min(blur[q1],blur[q2])<(line.light??100)))continue;mag[p]=0;}}
  const edge=new Uint8Array(n),weak=new Uint8Array(n),queue=new Int32Array(n);let head=0,tail=0;
  for(let y=roi.top+2;y<roi.bottom-2;y++)for(let x=roi.left+2;x<roi.right-2;x++){const p=y*w+x,m=mag[p],d=direction[p],offset=d===0?1:d===1?w+1:d===2?w:w-1;if(m<low||m<mag[p-offset]||m<=mag[p+offset])continue;weak[p]=1;if(m>=high){edge[p]=1;queue[tail++]=p;}}
  while(head<tail){const p=queue[head++];for(const d of [-w-1,-w,-w+1,-1,1,w-1,w,w+1]){const q=p+d;if(q>=0&&q<n&&weak[q]&&!edge[q]){edge[q]=1;queue[tail++]=q;}}}
