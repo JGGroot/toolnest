@@ -13,3 +13,5 @@ body[data-studio=foam]>.app-layout,body[data-studio=foam]>.site-footer,body[data
 @media(max-width:767px){.foam-tabs #foamFitTool{padding:7px 9px;font-size:11px}.foam-tabs #foamReset{padding:7px 9px}.foam-fields input,.foam-depth input[type=number]{min-height:46px}.foam-inspector .foam-tool-settings h3{margin-top:16px}}
 @media(max-width:1280px),(pointer:coarse){.right-panel>input[type=range]{min-height:44px;flex-shrink:0}.right-panel>.capture-save{flex-shrink:0}.foam-depth input[type=range]{min-height:44px}.foam-inspector input[type=range]{min-height:44px}}
 @media(max-width:1280px),(pointer:coarse){.foam-tabs button{min-height:44px}}
+
+.foam-lib-edit input.foam-name{flex:1 1 160px;min-width:0}.foam-lib-edit input[type=number]{width:84px;min-height:44px;padding:0 8px;border:1px solid var(--line);border-radius:6px}

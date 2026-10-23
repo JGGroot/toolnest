@@ -1,5 +1,5 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk2';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk2';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk3';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk3';
 import {edgeSilhouette} from './segmentation.js';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
