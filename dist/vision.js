@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk10';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk10';
-import {edgeSilhouette} from './segmentation.js?v=20261023-desk10';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk11';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk11';
+import {edgeSilhouette} from './segmentation.js?v=20261023-desk11';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -148,7 +148,7 @@ function extractExtended(image,paper,threshold,minArea,method,options){
  const [pw,ph]=PAPERS[paper],s=image.scale,[ox,oy]=image.origin,{width:w,height:h,data}=image,px=v=>v*s,X=v=>(v-ox)*s,Y=v=>(v-oy)*s;
  const valid=new Uint8Array(w*h);for(let i=0;i<valid.length;i++)valid[i]=data[i*4+3]?1:0;
  let mask;
- if(method==='edges'){
+ {
   const band=px(3),dots=px(1.2),paperEdges=[{axis:'x',at:X(0),band},{axis:'x',at:X(pw),band},{axis:'y',at:Y(0),band},{axis:'y',at:Y(ph),band}].map(l=>({...l,from:(l.axis==='x'?Y(0):X(0))-band,to:(l.axis==='x'?Y(ph):X(pw))+band})),lines=[];
   for(const [axis,at] of [['x',33],['x',pw-33],['y',33],['y',ph-33]])lines.push({axis,at:axis==='x'?X(at):Y(at),band:dots,from:axis==='x'?Y(33):X(33),to:axis==='x'?Y(ph-33):X(pw-33)});
   const blank=[0,1,2,3].map(id=>{const b=bounds(markerCorners(id,paper));return {left:Math.floor(X(b.minX-3)),right:Math.ceil(X(b.maxX+3)),top:Math.floor(Y(b.minY-3)),bottom:Math.ceil(Y(b.maxY+3))};});
@@ -165,10 +165,13 @@ function extractExtended(image,paper,threshold,minArea,method,options){
    const pass=(src,dst,horizontal,max)=>{for(let y=0;y<h;y++)for(let x=0;x<w;x++){let v=max?-1:1e9;for(let k=-r;k<=r;k++){const xx=horizontal?Math.min(w-1,Math.max(0,x+k)):x,yy=horizontal?y:Math.min(h-1,Math.max(0,y+k)),q=src[yy*w+xx];v=max?Math.max(v,q):Math.min(v,q);}dst[y*w+x]=v;}};
    pass(g,t,true,true);pass(t,u,false,true);pass(u,t,true,false);pass(t,u,false,false);
    for(let y=0;y<h;y++)for(let x=0;x<w;x++){const mx=x/s+ox,my=y/s+oy;if(mx<0||my<0||mx>pw||my>ph||(mx>34.5&&mx<pw-34.5&&my>34.5&&my<ph-34.5))continue;const i=y*w+x,v=u[i];if(v>g[i]+.5)clean[i*4]=clean[i*4+1]=clean[i*4+2]=v;}}
-  mask=edgeSilhouette({width:w,height:h,data:clean},{left:0,right:w,top:0,bottom:h},threshold,{...options,pixelsPerMm:s,valid,blank,suppress:paperEdges,floodFromBorder:true});
- }else{
-  // A dark table would read as one huge "tool", so brightness tracing stays on the sheet.
-  const g=gray(image);mask=new Uint8Array(g.length);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const mx=x/s+ox,my=y/s+oy;if(mx<33||mx>pw-33||my<33||my>ph-33)continue;mask[y*w+x]=g[y*w+x]<threshold?1:0;}
+  if(method==='edges')mask=edgeSilhouette({width:w,height:h,data:clean},{left:0,right:w,top:0,bottom:h},threshold,{...options,pixelsPerMm:s,valid,blank,suppress:paperEdges,floodFromBorder:true});
+  else{
+   // Brightness tracing covers the whole photographed area on a light surface. Markers are
+   // ignored; anything dark that runs to the photo border (e.g. a dark table) is rejected below.
+   const g=gray({width:w,height:h,data:clean});mask=new Uint8Array(g.length);for(let i=0;i<g.length;i++)mask[i]=valid[i]&&g[i]<threshold?1:0;
+   for(const r of blank)for(let y=Math.max(0,r.top);y<Math.min(h,r.bottom);y++)for(let x=Math.max(0,r.left);x<Math.min(w,r.right);x++)mask[y*w+x]=0;
+  }
  }
  const near=(x,y)=>{const cx=Math.round(x*s),cy=Math.round(y*s);for(let dy=-4;dy<=4;dy+=2)for(let dx=-4;dx<=4;dx+=2){const a=cx+dx,b=cy+dy;if(a<0||b<0||a>=w||b>=h||!valid[b*w+a])return true;}return false;};
  const inner=([x,y])=>x+ox>33.5&&x+ox<pw-33.5&&y+oy>33.5&&y+oy<ph-33.5;
