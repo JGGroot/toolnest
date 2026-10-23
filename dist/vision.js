@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk13';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk13';
-import {edgeSilhouette} from './segmentation.js?v=20261023-desk13';
+import {vectorCutPaths} from './cut-geometry.js?v=20261023-desk14';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261023-desk14';
+import {edgeSilhouette} from './segmentation.js?v=20261023-desk14';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -169,7 +169,12 @@ function extractExtended(image,paper,threshold,minArea,method,options){
   else{
    // Brightness tracing covers the whole photographed area on a light surface. Markers are
    // ignored; anything dark that runs to the photo border (e.g. a dark table) is rejected below.
-   const g=gray({width:w,height:h,data:clean});mask=new Uint8Array(g.length);for(let i=0;i<g.length;i++)mask[i]=valid[i]&&g[i]<threshold?1:0;
+   // Photos vary in exposure and the surface around the sheet may be mid-grey (floor, bench),
+   // so each cutoff is capped relative to the typical brightness of its own area: 75% of the
+   // paper's median on the sheet, 60% of the surface's median off it.
+   const g=gray({width:w,height:h,data:clean}),onSheet=i=>{const x=i%w,y=(i-x)/w,mx=x/s+ox,my=y/s+oy;return mx>=0&&my>=0&&mx<=pw&&my<=ph;};
+   const median=sheet=>{const hist=new Uint32Array(256);let count=0;for(let i=0;i<g.length;i+=3)if(valid[i]&&onSheet(i)===sheet){hist[Math.min(255,g[i]|0)]++;count++;}if(!count)return 255;for(let v=0,seen=0;v<256;v++){seen+=hist[v];if(seen*2>=count)return v;}return 255;};
+   const onCut=Math.min(threshold,median(true)*.75),offCut=Math.min(threshold,median(false)*.6);mask=new Uint8Array(g.length);for(let i=0;i<g.length;i++)mask[i]=valid[i]&&g[i]<(onSheet(i)?onCut:offCut)?1:0;
    for(const r of blank)for(let y=Math.max(0,r.top);y<Math.min(h,r.bottom);y++)for(let x=Math.max(0,r.left);x<Math.min(w,r.right);x++)mask[y*w+x]=0;
   }
  }
