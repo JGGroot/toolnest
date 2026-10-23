@@ -1,17 +1,17 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261022-snap1';
-import {createLiveCamera} from './camera-ui.js?v=20261022-snap1';
-import {createFoamStudio} from './foam-ui.js?v=20261022-snap1';
-import {validateFoam} from './foam-model.js?v=20261022-snap1';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261022-snap1';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261022-snap1';
+import {prepareCaptureAsync} from './capture-client.js?v=20261023-desk1';
+import {createLiveCamera} from './camera-ui.js?v=20261023-desk1';
+import {createFoamStudio} from './foam-ui.js?v=20261023-desk1';
+import {validateFoam} from './foam-model.js?v=20261023-desk1';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261023-desk1';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261023-desk1';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261022-snap1';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261022-snap1';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261023-desk1';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261023-desk1';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261022-snap1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261023-desk1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
@@ -65,7 +65,7 @@ function renderTraceScene(){
  const [w,h]=PAPERS[state.paper],svg=$('editor'),photo=view==='photo'&&sourceURL;attr(svg,'data-view',view);
  attr(svg,'viewBox',photo?`0 0 ${source.width} ${source.height}`:`0 0 ${w} ${h}`);const ratio=`${w}/${h}`;if($('sheetWrap').style.aspectRatio!==ratio)$('sheetWrap').style.aspectRatio=ratio;
  const has=state.tools.length>0||source;$('sheetWrap').hidden=!has;$('emptyState').hidden=!!has;
- const specs=[],add=(key,tag,attrs,text)=>specs.push({key,tag,attrs,text}),ppu=Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1));
+ const specs=[],add=(key,tag,attrs,text)=>specs.push({key,tag,attrs,text}),ppuOf=()=>Math.max(.01,Math.abs(svg.getScreenCTM()?.a||1));
  if(photo){add('photo','image',{href:sourceURL,width:source.width,height:source.height});(state.cal?.markers||[]).forEach((m,i)=>add('marker-'+i,'polygon',{points:m.corners.map(p=>p.join(',')).join(' '),fill:'none',stroke:'#a8d366','stroke-width':3}));}
  else{
   add('sheet','rect',{width:w,height:h,fill:'#fdfdf9'});if(view==='overlay'&&correctedURL)add('photo','image',{href:correctedURL,width:w,height:h,opacity:1});
@@ -80,7 +80,7 @@ function renderTraceScene(){
   state.fingers.forEach((f,i)=>add('finger-'+i,'circle',{cx:f.x,cy:f.y,r:f.r,class:'finger-circle','data-finger':i,'data-drag-tool':f.tool}));
   if((gripPreview||mode==='finger')&&selected){const b=profile(selected.points).b,q=nearest([b.maxX,(b.minY+b.maxY)/2],selected.points).p;add('grip-preview','circle',{cx:q[0],cy:q[1],r:Number($('fingerDiameter').value)/2,class:'grip-preview','pointer-events':'none'});}
   if(drag?.remembered&&drag.type!=='tool'&&selected)add('drag-preview','path',{d:profile(selected.points).d,class:'drag-preview'});
-  if(mode==='edit'&&selected){let previous=null;selected.points.forEach((p,i)=>{if(i!==activeNode&&previous&&Math.hypot(p[0]-previous[0],p[1]-previous[1])*ppu<(coarse()?44:18))return;previous=p;add('node-hit-'+i,'circle',{cx:p[0],cy:p[1],r:(coarse()?22:8)/ppu,class:'node-hit','data-node':i});add('node-'+i,'circle',{cx:p[0],cy:p[1],r:(i===activeNode?6:3.5)/ppu,class:'node'+(i===activeNode?' active':''),'data-node':i,'stroke-width':1/ppu});});}
+  if(mode==='edit'&&selected){const ppu=ppuOf();let previous=null;selected.points.forEach((p,i)=>{if(i!==activeNode&&previous&&Math.hypot(p[0]-previous[0],p[1]-previous[1])*ppu<(coarse()?44:18))return;previous=p;add('node-hit-'+i,'circle',{cx:p[0],cy:p[1],r:(coarse()?22:8)/ppu,class:'node-hit','data-node':i});add('node-'+i,'circle',{cx:p[0],cy:p[1],r:(i===activeNode?6:3.5)/ppu,class:'node'+(i===activeNode?' active':''),'data-node':i,'stroke-width':1/ppu});});}
  }
  const groups=new Map(),scene=[];
  for(const spec of specs){const index=spec.attrs?.['data-drag-tool'];if(index!==undefined){if(!groups.has(index))groups.set(index,[]);groups.get(index).push(spec);}else scene.push(spec);}
@@ -172,7 +172,7 @@ function movePointer(e){
  if(gesture&&pointers.size>=2){const next=pinchTransform(gesture.points,[...pointers.values()].slice(0,2),gesture.zoom,gesture.pan,gesture.center);zoom=next.zoom;pan=next.pan;applyZoom();e.preventDefault();return;}
  if(!drag)return;
  const moved=Math.hypot(e.clientX-drag.client.x,e.clientY-drag.client.y);if(moved<5&&!drag.moved)return;drag.moved=true;
- if(drag.type==='pan'){pan={x:drag.pan.x+e.clientX-drag.client.x,y:drag.pan.y+e.clientY-drag.client.y};applyZoom();return;}
+ if(drag.type==='pan'){area.classList.add('is-dragging');pan={x:drag.pan.x+e.clientX-drag.client.x,y:drag.pan.y+e.clientY-drag.client.y};applyZoom();return;}
  if(drag.type==='addFinger'||drag.type==='insert')return;
  latestTracePointer={clientX:e.clientX,clientY:e.clientY};queuePaint();
 }

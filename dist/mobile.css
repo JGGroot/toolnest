@@ -235,3 +235,9 @@ body.canvas-focus .mobile-nav{display:none!important}
 #foamLayout .foam-layout-tool{stroke-width:.7;vector-effect:non-scaling-stroke}
 #foamLayout .foam-layout-tool.selected{stroke-width:.85}
 #foamLayout .foam-layout-zone,#foamLayout .foam-selected-outline{stroke-width:.65;vector-effect:non-scaling-stroke}
+
+/* Desktop performance: while a drag or pan is in progress the pointer is
+   captured, so skip hit testing every complex path on each mouse move, and
+   don't keep the whole zoomed sheet on a separately rasterized layer. */
+.canvas-area.is-dragging svg *,.foam-stage.is-dragging svg *{pointer-events:none!important}
+#sheetWrap{will-change:auto}
