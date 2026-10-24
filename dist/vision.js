@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261025-fpk2';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261025-fpk2';
-import {edgeSilhouette} from './segmentation.js?v=20261025-fpk2';
+import {vectorCutPaths} from './cut-geometry.js?v=20261025-fpk3';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261025-fpk3';
+import {edgeSilhouette} from './segmentation.js?v=20261025-fpk3';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};

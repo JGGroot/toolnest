@@ -1,6 +1,6 @@
 import * as THREE from './vendor/three.module.js';
 import {OrbitControls} from './vendor/OrbitControls.js';
-import {surfaces,rectShape,extent,posed} from './foam-model.js?v=20261025-fpk2';
+import {surfaces,rectShape,extent,posed} from './foam-model.js?v=20261025-fpk3';
 export class Foam3D{
  constructor(host){this.host=host;this.renderer=new THREE.WebGLRenderer({antialias:true,alpha:true});this.renderer.setPixelRatio(Math.min(devicePixelRatio,2));this.renderer.setClearColor(0xf0f1eb,1);this.renderer.outputColorSpace=THREE.SRGBColorSpace;host.append(this.renderer.domElement);this.renderer.domElement.setAttribute('aria-label','3D foam preview. Drag to orbit, pinch to zoom.');this.renderer.domElement.setAttribute('role','img');this.scene=new THREE.Scene();this.camera=new THREE.PerspectiveCamera(38,1,.1,10000);this.camera.up.set(0,0,1);this.controls=new OrbitControls(this.camera,this.renderer.domElement);this.controls.enableDamping=false;this.controls.maxPolarAngle=Math.PI*.49;this.controls.minDistance=20;this.controls.addEventListener('change',()=>this.draw());this.scene.add(new THREE.HemisphereLight(0xffffff,0x61646a,2.4));const light=new THREE.DirectionalLight(0xffffff,3);light.position.set(-300,-400,800);this.scene.add(light);this.group=new THREE.Group();this.scene.add(this.group);this.ro=new ResizeObserver(()=>this.resize());this.ro.observe(host);this.revision=0;}
  material(color){return new THREE.MeshStandardMaterial({color,roughness:1,metalness:0,side:THREE.DoubleSide});}
