@@ -1,36 +1,46 @@
-# Segmentation comparison — 24 October 2026
+# Segmentation comparison — 25 October 2026
 
-Measured in headless Microsoft Edge on this Windows development computer. Times vary with hardware, cache state and network conditions; these are not phone hardware timings. Both models ran locally. All observed external tracing/runtime requests were GET requests; no photo upload or remote inference request occurred. Startup made no external requests.
+## Method
 
-Nineteen supplied local images were examined. Thirteen tool/reference images calibrated and produced regions with both engines; five foam images and one tool image with only three detected markers were rejected by Trace calibration. No supplied images or photo pixels have been committed.
+The supplied sample set includes seven real photographs of tools on the Letter calibration sheet and, for each, a Gemini-generated image of the same scene with the tool painted solid black. Both images of a pair are calibrated with their own markers into the same sheet millimetres, so the Gemini silhouette (traced with Dark silhouette) serves as the reference outline. It is a generated reference, not a physical measurement, but it is independent of every method being compared.
 
-| Engine | Weight bytes | First load in this run | Subsequent tap range, real images | Median tap |
-| --- | ---: | ---: | ---: | ---: |
-| Quick / MagicTouch (GPU) | 6,227,884 | 988 ms | 40–56 ms | 45 ms |
-| Precise / SlimSAM (WebGPU) | 39,833,906 | 4,654 ms | 109–139 ms | 127 ms |
+Each method traced the real photo from **one tap** at the reference outline's most interior point. Scores: **IoU** (area overlap, 1 = identical), **mean** and **max** distance between the two boundaries in mm. One pair (the bit holder) could not be scored: its real photo shows only three of the four markers. Five further images are foam trays (useful for Detect pockets, not Trace). Measured on a Windows desktop in Edge; times include the per-tap work after the model is loaded. No sample photos are committed.
 
-Runtime/weight fetches may have benefited from HTTP caches. The first Quick inference took 1,191 ms and the first Precise inference 479 ms. Precise's first generated-photo embedding took 1,211 ms; real-photo embeddings took approximately 0.7–0.8 seconds. Quick has no reusable encoder API; its timing reports embedding as zero and includes model work in each uncached point inference. In a separate forced-WASM run, Precise encoded the generated image in 5,954 ms and decoded taps in 185–196 ms. That run produced usable masks without WebGPU.
+## Original single-pass method (v28)
 
-The automatic comparison puts one positive tap at a thick interior location of each Smart edges reference. These are single-tap results, not hand-corrected best cases. The table reports maximum symmetric point-to-segment distance from that reference, after snapping. Smart edges is another algorithm, not measured physical ground truth. A low value establishes agreement, not CNC accuracy; a high value often means that the model selected a component, filled a concavity, or missed a thin extension.
+The model saw the whole rectified photo, reduced to 1024 px, and its own most-confident mask was used.
 
-| Local filename | Quick difference (mm) | Precise difference (mm) |
+| Tool | Quick IoU / max mm | Precise IoU / max mm |
 | --- | ---: | ---: |
-| 1792753518717.jpg | 1.10 | 1.11 |
-| 1792756890416.jpg | 38.91 | 0.44 |
-| 1792757987402.jpg | 3.59 | 3.57 |
-| 1792758423078.jpg | 0.66 | 1.01 |
-| 1792766712614.jpg | 1.23 | 201.07 |
-| 1792766746805.jpg | 2.84 | 35.65 |
-| 20261023_115415.jpg | 3.72 | 146.42 |
-| 20261023_125350.jpg | 6.37 | 244.93 |
-| 20261023_125933.jpg | 173.33 | 4.36 |
-| 20261023_131648.jpg | 5.26 | 5.36 |
-| 20261023_150738.jpg | 3.31 | 245.59 |
-| 20261023_150755.jpg | 2.01 | 201.67 |
-| 20261023_151009.jpg | 1.28 | 20.97 |
+| Adjustable wrench | 0.941 / 3.3 | 0.063 / 146.8 |
+| Ratchet | 0.033 / 142.5 | no outline |
+| Multitool | 0.974 / 1.9 | 0.974 / 2.0 |
+| Pipe wrench | 0.971 / 1.8 | 0.010 / 242.6 |
+| Pliers | 0.959 / 2.3 | 0.039 / 201.5 |
+| Punch | 0.960 / 1.8 | 0.905 / 47.4 |
 
-The generated three-tool sheet gave maximum differences of 1.21, 11.48 and 0.52 mm for Quick, versus 58.06, 0.44 and 75.46 mm for Precise. Neither engine meets the brief's approximately 0.5 mm single-tap boundary target across the sample. Quick generally selected whole tools more consistently in this set. Precise sometimes selected just a handle, jaw or joint; extra positive points are necessary. The UI supports that refinement, but multi-tap quality has not been exhaustively measured for every supplied photo.
+Failures were whole-sheet answers (the paper is the most confident object in view) or single parts (a jaw, a handle).
 
-Both candidates remain available for owner evaluation. Export uses the currently selected engine's accepted geometry; the second coloured comparison is display-only. Inspect actual overlays and dimensions before choosing an engine for a particular tool.
+## Two-pass method (v29)
 
-Automated real-model UI checks passed at 1440 and 390 px: positive and negative prompts, refinement outside the first mask, engine comparison, global undo/redo, undo tap, pan and touch pinch without added prompts, smoothing without lost prompts, project save/open, offline fallback and cancellation. The 390 px check uses a desktop browser viewport, not a physical phone. Unit tests independently check mask dimensions within 0.3 mm and origin/point mapping.
+1. *Which object?* The Smart edges outline under the tap (or, without one, a non-sheet answer from the model's whole-photo look).
+2. *Exactly where?* The model looks again at just that object, cropped at full resolution. Precise also gets five taps spread along the outline. Candidates are reduced to the region under the tap; sheet-sized ones are rejected; the one agreeing best with the Smart edges outline is chosen. The existing edge snapper then refines it.
+
+| Tool | Smart edges IoU / mean / max | Quick IoU / mean / max · time | Precise IoU / mean / max · time |
+| --- | ---: | ---: | ---: |
+| Adjustable wrench | 0.942 / 0.69 / 3.3 | 0.941 / 0.73 / 3.3 · 0.45 s* | 0.931 / 0.76 / 3.4 · 8.0 s |
+| Ratchet | 0.823 / 1.10 / 3.9 | 0.855 / 0.88 / 4.4 · 0.18 s | 0.826 / 1.15 / 4.2 · 7.1 s |
+| Multitool | 0.895 / 1.56 / 5.0 | 0.976 / 0.34 / 1.9 · 0.16 s | 0.971 / 0.39 / 2.0 · 7.6 s |
+| Pipe wrench | 0.971 / 0.38 / 1.7 | 0.971 / 0.42 / 1.8 · 0.23 s | 0.964 / 0.57 / 2.4 · 6.9 s |
+| Pliers | 0.966 / 0.35 / 2.2 | 0.962 / 0.38 / 2.1 · 0.28 s | 0.965 / 0.36 / 2.2 · 6.8 s |
+| Punch | 0.947 / 0.70 / 9.3 | 0.960 / 0.30 / 1.8 · 0.28 s | 0.949 / 0.35 / 1.8 · 7.0 s |
+
+\* first tap after loading.
+
+## Findings
+
+- **Quick is the practical choice.** From one tap it matches or beats Smart edges on every tool, most clearly where Smart edges struggles (chrome multitool: max 5.0 → 1.9 mm; punch: 9.3 → 1.8 mm), in a fraction of a second.
+- **Precise is equally accurate here but slow** (about 7 s per tap on this desktop, single-threaded on the CPU) and offers no measurable gain on this set.
+- **Precise on WebGPU was unreliable.** In one page its answers degraded after a few photos (the same input that scored 0.95 in a fresh page scored 0.05 later), and it crashed a phone browser. It now always runs the 8-bit model on the CPU, which matched full precision.
+- Single-pass segmentation was the main cause of the earlier failures, not the models: given the right object and a close-up view, both models find good edges.
+- Remaining differences of 2–4 mm at a few points are mostly at chrome highlights, red-handled grips and the reference's own edges; check the overlay and outline before cutting.

@@ -1,5 +1,5 @@
-import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261024-seg1';
-import {fairOutline,cleanRing} from './outline.js?v=20261024-seg1';
+import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261025-seg5';
+import {fairOutline,cleanRing} from './outline.js?v=20261025-seg5';
 // Scale for foam photos and flatbed scans, and pocket detection on an aligned foam photo.
 
 // ---- Scale target: a small printed card with the four coded squares (15 mm, 1.875 mm cells) in its

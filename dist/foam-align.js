@@ -1,4 +1,4 @@
-import {extent,posed} from './foam-model.js?v=20261024-seg1';
+import {extent,posed} from './foam-model.js?v=20261025-seg5';
 // Layout helpers work on bounding boxes of posed tools. A "unit" is a set of tool
 // indices that moves as one: a single tool, or every member of a locked group.
 export function unitsFor(tools,indices){const units=new Map();for(const i of indices){const t=tools[i];if(!t)continue;const key=t.lock||'#'+t.id;if(!units.has(key))units.set(key,t.lock?tools.flatMap((o,k)=>o.lock===t.lock?[k]:[]):[i]);}return [...units.values()];}
