@@ -1,5 +1,5 @@
 import clip from './vendor/polygon-clipping.js';
-import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-layout1';
+import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-sketch1';
 // Generators and edits for parametric cutouts (see validSpec in foam-model.js) and for
 // operations that combine or repeat tools.
 // Closed centripetal Catmull-Rom spline through the clicked points, sampled finely enough for cutting.
@@ -28,3 +28,32 @@ export function parseLength(s){const m=/^(\d*\.?\d+)\s*(mm|in|")?$/i.exec(s.trim
 export function parseSockets(text){const items=text.split(/[,;\n]+/).map(s=>s.trim()).filter(Boolean).map(token=>{const [size,depth]=token.split('@'),d=parseLength(size);if(!(d>=2&&d<=300))throw Error(`"${token}" is not a diameter of 2–300 mm.`);const item={d,label:size.trim()};if(depth!==undefined){item.depth=parseLength(depth);if(!(item.depth>0))throw Error(`"${token}" has an invalid depth.`);}return item;});if(!items.length)throw Error('Enter at least one socket diameter.');if(items.length>60)throw Error('Maximum 60 sockets per row.');return items;}
 // A row of circular pockets, edge to edge `gap` apart, centred on one line or aligned along their tops or bottoms.
 export function socketRow(items,{gap=8,clearance=.5,depth=25,align='centre'}={}){const sizes=items.map(i=>i.d+clearance),tallest=Math.max(...sizes);let x=0;return items.map((item,k)=>{const D=sizes[k],y=align==='top'?0:align==='bottom'?tallest-D:(tallest-D)/2,{shape,spec}=fromSpec({type:'ellipse',w:D,h:D}),t={id:uid(),name:`Socket Ø${/^[\d.]+$/.test(item.label)?item.label+' mm':item.label}`.slice(0,60),x,y,rotation:0,depth:item.depth||depth,shape,spec,zones:[]};x+=D+gap;return t;});}
+// Interactive sketch tools. Two-click tools take a first point then a second point (or typed sizes);
+// a slot takes its centre line then its width; lines and splines collect points until closed.
+export const SKETCH_TOOLS={
+ rect:{label:'Rectangle',name:'Rectangle',hint:'Click two corners'},
+ crect:{label:'Center rectangle',name:'Rectangle',hint:'Click the centre, then a corner'},
+ circle:{label:'Circle',name:'Circle',hint:'Click the centre, then the edge'},
+ ellipse:{label:'Ellipse',name:'Ellipse',hint:'Click the centre, then a corner of its box'},
+ slot:{label:'Slot',name:'Slot',hint:'Click both end centres, then the width'},
+ line:{label:'Line',name:'Polygon',hint:'Click corners; click the first point, double-click or Enter to close'},
+ spline:{label:'Spline',name:'Spline',hint:'Click points; click the first point, double-click or Enter to close'}};
+export function sketchFields(tool,n){if(!n||tool==='spline')return [];if(tool==='circle')return [['d','Ø']];if(tool==='slot')return n===1?[['l','L']]:[['w','W']];if(tool==='line')return [['len','L'],['ang','∠']];return [['w','W'],['h','H']];}
+const deg=Math.PI/180;
+// Snap a direction to the nearest 45° when within 4°, unless a typed angle overrides it.
+function direction(a,p,typedAngle,snap){let ang=typedAngle!==undefined?typedAngle:-Math.atan2(p[1]-a[1],p[0]-a[0])/deg;if(typedAngle===undefined&&snap){const near=Math.round(ang/45)*45;if(Math.abs(near-ang)<4)ang=near;}return ang;}
+export function sketchStep(tool,pts,p,typed={},{radius=0,snap=true}={}){
+ const a=pts[0],dx=p[0]-(a?.[0]??0),dy=p[1]-(a?.[1]??0),n=pts.length;
+ if(!n)return {live:{},preview:[]};
+ if(tool==='rect'){const w=typed.w??Math.abs(dx),h=typed.h??Math.abs(dy),sx=Math.sign(dx)||1,sy=Math.sign(dy)||1;return {live:{w,h},shape:{spec:{type:'rect',w,h,r:radius},centre:[a[0]+sx*w/2,a[1]+sy*h/2],rotation:0}};}
+ if(tool==='crect'||tool==='ellipse'){const w=typed.w??2*Math.abs(dx),h=typed.h??2*Math.abs(dy);return {live:{w,h},shape:{spec:tool==='crect'?{type:'rect',w,h,r:radius}:{type:'ellipse',w,h},centre:[...a],rotation:0}};}
+ if(tool==='circle'){const d=typed.d??2*Math.hypot(dx,dy);return {live:{d},shape:{spec:{type:'ellipse',w:d,h:d},centre:[...a],rotation:0}};}
+ if(tool==='slot'){if(n===1){const ang=direction(a,p,undefined,snap),l=typed.l??Math.hypot(dx,dy),point=[a[0]+l*Math.cos(ang*deg),a[1]-l*Math.sin(ang*deg)];return {live:{l},point,preview:[a,point]};}
+  const b=pts[1],l=Math.hypot(b[0]-a[0],b[1]-a[1]),ux=(b[0]-a[0])/(l||1),uy=(b[1]-a[1])/(l||1),w=typed.w??2*Math.abs((p[0]-a[0])*uy-(p[1]-a[1])*ux);return {live:{w},shape:{spec:{type:'slot',w:l+w,h:w},centre:[(a[0]+b[0])/2,(a[1]+b[1])/2],rotation:Math.atan2(uy,ux)/deg}};}
+ const last=pts.at(-1);if(tool==='line'){const ang=direction(last,p,typed.ang,snap),len=typed.len??Math.hypot(p[0]-last[0],p[1]-last[1]),point=[last[0]+len*Math.cos(ang*deg),last[1]-len*Math.sin(ang*deg)];return {live:{len,ang},point,preview:[...pts,point]};}
+ const all=[...pts,p];return {live:{},point:p,preview:all.length>2?splinePoints(all,12):all,closed:all.length>2};
+}
+// World outline of a sketched shape: its spec ring centred on `centre` and turned by `rotation` degrees.
+export function placedRing({spec,centre,rotation}){const ring=specRing(spec),b=extent([[ring]]),cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2,c=Math.cos(rotation*deg),s=Math.sin(rotation*deg);return ring.map(([x,y])=>[(x-cx)*c-(y-cy)*s+centre[0],(x-cx)*s+(y-cy)*c+centre[1]]);}
+// A tool whose posed bounding box is centred on `centre`.
+export function sketchedTool({spec,centre,rotation},fields){const {shape,spec:local}=fromSpec(spec),t={id:uid(),x:0,y:0,rotation:((rotation%360)+360)%360,shape,spec:local,zones:[],...fields},b=extent(posed(t));t.x=centre[0]-b.maxX/2;t.y=centre[1]-b.maxY/2;return t;}
