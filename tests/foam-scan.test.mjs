@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {markerBits,homography,project} from '../dist/vision.js?v=20261025-fpk1';
+import {markerBits,homography,project} from '../dist/vision.js?v=20261025-fpk2';
 import {TARGET,targetCorners,findTarget,findFoamCorners,measureCorners,readScanDPI,likelyScanDPI,foamColours,detectPockets} from '../dist/foam-scan.js';
 // Synthetic RGB image; `paint(x,y)` returns [r,g,b].
 function image(w,h,paint){const data=new Uint8ClampedArray(w*h*4);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const c=paint(x,y),i=(y*w+x)*4;data[i]=c[0];data[i+1]=c[1];data[i+2]=c[2];data[i+3]=255;}return {width:w,height:h,data};}
@@ -35,4 +35,11 @@ test('Foam corners are found in a photo: a dark tray with yellow pockets on a li
  const found=findFoamCorners(img);assert.ok(found,'corners found');found.forEach((p,i)=>assert.ok(Math.hypot(p[0]-quad[i][0],p[1]-quad[i][1])<12,`corner ${i}: ${p.map(Math.round)} vs ${quad[i]}`));
  // Nothing distinct from the table: no corners.
  assert.equal(findFoamCorners(image(400,300,()=>[230,230,230])),null);
+});
+test('Rounded foam corners: the sides are fitted and the corners are where they meet, not on the arc',()=>{
+ // A slightly rotated tray with 70 px corner radii; its corners are those of the sharp rectangle.
+ const [cx,cy,hw,hh,R,a]=[700,450,500,300,70,.05],cos=Math.cos(a),sin=Math.sin(a),local=(x,y)=>[(x-cx)*cos+(y-cy)*sin,-(x-cx)*sin+(y-cy)*cos];
+ const img=image(1400,900,(x,y)=>{const [u,v]=local(x+.5,y+.5),qx=Math.max(Math.abs(u)-(hw-R),0),qy=Math.max(Math.abs(v)-(hh-R),0);return Math.abs(u)<=hw&&Math.abs(v)<=hh&&Math.hypot(qx,qy)<=R?((u/hw)**2+(v/hh)**2<.15?[225,200,40]:[70,68,72]):[228,228,224];});
+ const truth=[[-hw,-hh],[hw,-hh],[hw,hh],[-hw,hh]].map(([u,v])=>[cx+u*cos-v*sin,cy+u*sin+v*cos]),found=findFoamCorners(img);assert.ok(found,'corners found');
+ found.forEach((p,i)=>assert.ok(Math.hypot(p[0]-truth[i][0],p[1]-truth[i][1])<6,`corner ${i}: ${p.map(Math.round)} vs ${truth[i].map(Math.round)}`));
 });

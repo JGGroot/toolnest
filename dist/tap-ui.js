@@ -1,6 +1,6 @@
-import {normalizedPrompts,maskToPaths,insidePath} from './segment-model.js?v=20261025-fpk1';
-import {segmentTap} from './segment-tap.js?v=20261025-fpk1';
-import {PAPERS} from './vision.js?v=20261025-fpk1';
+import {normalizedPrompts,maskToPaths,insidePath} from './segment-model.js?v=20261025-fpk2';
+import {segmentTap} from './segment-tap.js?v=20261025-fpk2';
+import {PAPERS} from './vision.js?v=20261025-fpk2';
 // AI Trace: a tap outside every tool traces a new one; a tap inside an AI-traced tool selects it. The ＋ and − buttons
 // in the canvas toolbar arm one tap that adds a missed part to, or removes an area from, the selected tool.
 // `?segdebug` overlays what the model returned, the window it zoomed into and the taps it was given.
@@ -15,7 +15,7 @@ export function createTapUI(api){const $=id=>document.getElementById(id),debug=n
   const hint=!message&&!working&&active&&api.photo()?(armed==='add'?'Tap the part the outline missed':armed==='remove'?'Tap the area to remove':s.tools.length?'':'Tap a tool to trace it'):'';
   work.hidden=!active||!(working||message||hint);work.classList.toggle('error',failed);$('tapStatus').textContent=message||hint;$('tapProgress').hidden=!working;$('tapCancel').hidden=!working;$('tapRetry').hidden=$('tapFallback').hidden=!failed||loaded;}
  function progress(p){if(p.phase==='download'){message=`Downloading AI model${p.loaded?` · ${(p.loaded/1e6).toFixed(1)}${p.total?' / '+(p.total/1e6).toFixed(1):''} MB`:''}`;if(p.total){$('tapProgress').max=p.total;$('tapProgress').value=p.loaded||0;}else $('tapProgress').removeAttribute('value');}else{message={runtime:'Loading AI model…',initializing:'Preparing AI model…',embedding:'Reading photo…'}[p.phase]||'Tracing…';$('tapProgress').removeAttribute('value');}update();}
- async function ready(expected=serial){module||=await import('./segment.js?v=20261025-fpk1');if(expected!==serial)throw new DOMException('Cancelled','AbortError');const model=await module.loadSegmenter(ENGINE,progress);loaded=true;return model;}
+ async function ready(expected=serial){module||=await import('./segment.js?v=20261025-fpk2');if(expected!==serial)throw new DOMException('Cancelled','AbortError');const model=await module.loadSegmenter(ENGINE,progress);loaded=true;return model;}
  function invalidate(){const cancel=working;seen=null;serial++;working=false;armed=null;message='';failed=false;if(cancel){module?.cancelSegmenter(ENGINE);loaded=false;}update();}
  async function activate(){if(api.state().traceMethod!=='tap'){invalidate();return;}api.overlay();update();if(!api.photo())return status('Choose the original photo to trace.');const job=++serial;working=true;status('Loading AI model…');try{await ready();if(job===serial)status('');}catch(e){if(job===serial&&e.name!=='AbortError')status(e.message,true);}finally{if(job===serial){working=false;update();}}}
  async function run(points,index){if(working)return;if(index<0&&api.state().tools.length>=50)return api.toast('A Trace project can contain up to 50 tools.');const rect=api.photo();if(!rect)return status('Choose the original photo to trace.');if(points.length>64)return api.toast('Use up to 64 taps per tool.');try{normalizedPrompts(points,rect);}catch(e){return api.toast(e.message);}const before=api.snapshot(),job=++serial;working=true;status('Tracing…');

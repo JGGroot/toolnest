@@ -95,6 +95,7 @@ body #libraryStudio{flex:1;min-height:0;overflow:auto}
 .photo-btn,.settings-btn{display:grid;place-items:center;flex:0 0 auto}.photo-btn svg,.settings-btn svg{width:20px;height:20px}
 .photo-btn{color:#fff;background:var(--accent);border-color:var(--accent)}.photo-btn:hover{filter:brightness(1.05)}
 .canvas-options .settings-btn{display:none}.settings-btn[aria-pressed=true]{background:#e9eee1;color:#465f34}
-@media(max-width:1280px){:root:root{--mobile-nav-height:0px}}@media(max-width:767px){.canvas-options .settings-btn{display:grid}}
+/* Trace and Library have no bottom nav; Foam keeps its own (Tools, Layout, Export) and its reserved space. */
+@media(max-width:1280px){body:not([data-studio=foam]){--mobile-nav-height:0px}}@media(max-width:767px){.canvas-options .settings-btn{display:grid}}
 .workspace .canvas-top .tool-name-field{flex:1 1 auto;max-width:none}.workspace .canvas-top{justify-content:flex-start}
 .save-list{display:grid;gap:8px;margin:12px 0 16px}.save-row{display:flex;gap:10px;align-items:center}.save-row input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;accent-color:var(--accent)}.save-row .form-input{flex:1;min-width:0}

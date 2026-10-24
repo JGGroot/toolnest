@@ -1,5 +1,5 @@
-import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261025-fpk1';
-import {fairOutline,cleanRing} from './outline.js?v=20261025-fpk1';
+import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261025-fpk2';
+import {fairOutline,cleanRing} from './outline.js?v=20261025-fpk2';
 // Scale for foam photos and flatbed scans, and pocket detection on an aligned foam photo.
 
 // ---- Scale target: a small printed card with the four coded squares (15 mm, 1.875 mm cells) in its
@@ -30,8 +30,9 @@ export const likelyScanDPI=dpi=>Number.isFinite(dpi)&&dpi>=150&&dpi<=4800;
 
 // ---- Foam corners in a photo: the foam is the large region under the photo's centre that differs from
 // the table, whose colour is read from the photo's edges (Otsu threshold on the distance to it). Its
-// corners (TL, TR, BR, BL) are the region's extreme points along the two diagonals. Works on a reduced
-// copy; returns corners in the image's pixels, or null.
+// corners (TL, TR, BR, BL) start as the region's extreme points along the two diagonals. On rounded
+// corners those sit on the arc, inside the true corner, so each is then refined where straight-line fits
+// to its two sides meet. Works on a reduced copy; returns corners in the image's pixels, or null.
 export function findFoamCorners(image,maxSide=640){const k=Math.min(1,maxSide/Math.max(image.width,image.height)),w=Math.max(8,Math.round(image.width*k)),h=Math.max(8,Math.round(image.height*k)),n=w*h,src=image.data,rgb=new Float32Array(n*3);
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(Math.min(image.height-1,Math.floor((y+.5)/k))*image.width+Math.min(image.width-1,Math.floor((x+.5)/k)))*4,o=(y*w+x)*3;rgb[o]=src[i];rgb[o+1]=src[i+1];rgb[o+2]=src[i+2];}
  const edge=[];for(let x=0;x<w;x++)edge.push(x,(h-1)*w+x);for(let y=0;y<h;y++)edge.push(y*w,y*w+w-1);const median=c=>{const v=edge.map(p=>rgb[p*3+c]).sort((a,b)=>a-b);return v[v.length>>1];},bg=[0,1,2].map(median);
@@ -42,7 +43,31 @@ export function findFoamCorners(image,maxSide=640){const k=Math.min(1,maxSide/Ma
  const seen=new Uint8Array(n),queue=new Int32Array(n);let start=-1;for(let rr=0;rr<Math.min(w,h)/4&&start<0;rr+=2)for(const [dx,dy] of [[0,0],[rr,0],[-rr,0],[0,rr],[0,-rr]]){const p=((h>>1)+dy)*w+(w>>1)+dx;if(mask[p]){start=p;break;}}if(start<0)return null;
  let tail=0,count=0;seen[start]=1;queue[tail++]=start;const ext=[[Infinity,0],[-Infinity,0],[-Infinity,0],[Infinity,0]];
  for(let head=0;head<tail;head++){const p=queue[head],x=p%w,y=p/w|0;count++;const a=x+y,b=x-y;if(a<ext[0][0])ext[0]=[a,p];if(b>ext[1][0])ext[1]=[b,p];if(a>ext[2][0])ext[2]=[a,p];if(b<ext[3][0])ext[3]=[b,p];for(const q of [x>0?p-1:-1,x<w-1?p+1:-1,y>0?p-w:-1,y<h-1?p+w:-1])if(q>=0&&mask[q]&&!seen[q]){seen[q]=1;queue[tail++]=q;}}
- if(count<n*.05||count>n*.97)return null;return ext.map(([,p])=>[((p%w)+.5)/k,((p/w|0)+.5)/k]);}
+ if(count<n*.05||count>n*.97)return null;const rough=ext.map(([,p])=>[(p%w)+.5,(p/w|0)+.5]),rim=[];
+ for(let p=0;p<n;p++){if(!seen[p])continue;const x=p%w,y=p/w|0;if(x===0||y===0||x===w-1||y===h-1||!seen[p-1]||!seen[p+1]||!seen[p-w]||!seen[p+w])rim.push([x+.5,y+.5]);}
+ // Each snap searches near the current sides, so repeat until the corners settle.
+ let corners=fitSides(rough,rim).map(([x,y])=>[x/k,y/k]);for(let pass=0;pass<3;pass++){const next=refineCorners(image,corners,1/k,bg),moved=Math.max(...next.map((p,i)=>Math.hypot(p[0]-corners[i][0],p[1]-corners[i][1])));corners=next;if(moved<1)break;}return corners;}
+// Each corner from the two sides that meet there: a total-least-squares line through the boundary
+// 6–30% along each side from that corner (past any rounding, and short enough that lens bow near the
+// photo's edge barely bends it), fitted twice (the second time keeping points within 1.5 px of the
+// first line, so notches and pockets do not tilt it), then intersected. A corner that would move further
+// than a tenth of its shorter side keeps its extreme point.
+function fitSides(rough,edge){const side=(a,b,from,to)=>{const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy);if(L<8)return null;const ux=dx/L,uy=dy/L,band=Math.max(3,L*.06);let pts=edge.filter(([x,y])=>{const t=((x-a[0])*ux+(y-a[1])*uy)/L,d=Math.abs((x-a[0])*uy-(y-a[1])*ux);return t>from&&t<to&&d<band;}),line=null;
+  for(let pass=0;pass<2;pass++){if(pts.length<6)return null;line=fitLine(pts);if(!pass)pts=pts.filter(([x,y])=>Math.abs((x-line.cx)*line.nx+(y-line.cy)*line.ny)<1.5);}return line;};
+ return rough.map((c,i)=>{const prev=rough[(i+3)%4],next=rough[(i+1)%4],a=side(prev,c,.7,.94),b=side(c,next,.06,.3),p=a&&b&&meet(a,b),short=Math.min(Math.hypot(c[0]-prev[0],c[1]-prev[1]),Math.hypot(c[0]-next[0],c[1]-next[1]));return p&&Math.hypot(p[0]-c[0],p[1]-c[1])<=short*.1?p:c;});}
+// Full-resolution edge snap: along each side near each corner, the strongest colour step within 2% of
+// the side's length across it whose outer side is more like the table than its inner side (so the sharp
+// foam-to-table edge, not a soft shadow beside it nor a pocket reaching the edge) is taken as the edge; lines through those points are intersected again. A corner that would move more than 3% of
+// its shorter side keeps the reduced-copy answer.
+function refineCorners(image,corners,px,bg){const {width:w,height:h,data}=image,at=(x,y)=>{x=Math.max(0,Math.min(w-1,Math.round(x)));y=Math.max(0,Math.min(h-1,Math.round(y)));return (y*w+x)*4;};
+ const edgePoints=(a,b,from,to)=>{const dx=b[0]-a[0],dy=b[1]-a[1],L=Math.hypot(dx,dy),ux=dx/L,uy=dy/L,nx=-uy,ny=ux,r=Math.max(6,Math.round(L*.02)),pts=[],steps=48;
+  // Mean colour of three samples along the side, at offset d across it.
+  const colour=(x,y,d)=>{const c=[0,0,0];for(const s of [-2,0,2]){const i=at(x+ux*s+nx*d,y+uy*s+ny*d);c[0]+=data[i];c[1]+=data[i+1];c[2]+=data[i+2];}return c;};
+  for(let k=0;k<=steps;k++){const t=from+(to-from)*k/steps,x=a[0]+dx*t,y=a[1]+dy*t,cs=[];for(let d=-r-2;d<=r+2;d++)cs.push(colour(x,y,d));let best=0,off=null;for(let d=-r;d<=r;d++){const p=cs[d+r],q=cs[d+r+4],g=Math.hypot(q[0]-p[0],q[1]-p[1],q[2]-p[2]),table=c=>Math.hypot(c[0]/3-bg[0],c[1]/3-bg[1],c[2]/3-bg[2]);if(g>best&&table(p)<table(q)){best=g;off=d;}}if(off!==null&&best>30)pts.push([x+nx*off,y+ny*off]);}return pts;};
+ const line=pts=>{if(pts.length<8)return null;let l=fitLine(pts);const keep=pts.filter(([x,y])=>Math.abs((x-l.cx)*l.nx+(y-l.cy)*l.ny)<Math.max(2,px*1.5));return keep.length<8?null:fitLine(keep);};
+ return corners.map((c,i)=>{const prev=corners[(i+3)%4],next=corners[(i+1)%4],a=line(edgePoints(prev,c,.7,.94)),b=line(edgePoints(c,next,.06,.3)),p=a&&b&&meet(a,b),short=Math.min(Math.hypot(c[0]-prev[0],c[1]-prev[1]),Math.hypot(c[0]-next[0],c[1]-next[1]));return p&&Math.hypot(p[0]-c[0],p[1]-c[1])<=short*.03?p:c;});}
+function fitLine(pts){let cx=0,cy=0;for(const [x,y] of pts){cx+=x;cy+=y;}cx/=pts.length;cy/=pts.length;let sxx=0,sxy=0,syy=0;for(const [x,y] of pts){sxx+=(x-cx)**2;sxy+=(x-cx)*(y-cy);syy+=(y-cy)**2;}const angle=Math.atan2(2*sxy,sxx-syy)/2;return {cx,cy,nx:-Math.sin(angle),ny:Math.cos(angle)};}
+function meet(a,b){const det=a.nx*b.ny-a.ny*b.nx;if(Math.abs(det)<1e-6)return null;const ca=a.nx*a.cx+a.ny*a.cy,cb=b.nx*b.cx+b.ny*b.cy;return [(ca*b.ny-a.ny*cb)/det,(a.nx*cb-ca*b.nx)/det];}
 
 // ---- Pockets in an aligned two-tone foam photo. The aligned photo covers exactly the foam's top
 // surface, so its border is top surface; pockets are what clusters as the other colour.
