@@ -1,5 +1,5 @@
 import clip from './vendor/polygon-clipping.js';
-import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-cloud2';
+import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-library1';
 // Generators and edits for parametric cutouts (see validSpec in foam-model.js) and for
 // operations that combine or repeat tools.
 // Closed centripetal Catmull-Rom spline through the clicked points, sampled finely enough for cutting.
