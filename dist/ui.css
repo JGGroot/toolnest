@@ -1,0 +1,76 @@
+/* A quiet default workspace; manual controls stay available on demand. */
+[hidden]{display:none!important}
+.ui-disclosure{border-top:1px solid var(--line);margin:14px 0;padding-top:4px}
+.ui-disclosure>summary{cursor:pointer;min-height:44px;display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:12px;font-weight:600;list-style:none}
+.ui-disclosure>summary::-webkit-details-marker,.tool-menu>summary::-webkit-details-marker{display:none}
+.ui-disclosure>summary::after{content:'＋';font-weight:400}
+.ui-disclosure[open]>summary::after{content:'−'}
+.ui-disclosure[open]>summary{margin-bottom:10px}
+.ui-disclosure input[type=range]{width:100%;min-height:36px}
+.ui-disclosure select{max-width:100%}
+.ui-disclosure .form-label{margin-top:14px}
+.outline-presets{display:flex;gap:4px;margin:10px 0 16px;padding:3px;border:1px solid var(--line);border-radius:7px;background:#ecefe5}
+.outline-presets button{min-height:40px;flex:1;border:0;border-radius:5px;background:transparent;font-size:12px}
+.outline-presets button[aria-pressed=true]{background:#fff;box-shadow:0 1px 4px #0001;color:var(--ink)}
+.right-panel>.setting-head{margin-top:14px}
+.right-panel>.divider{display:none}
+.right-panel>.section-title{margin-top:14px}
+.right-panel .ui-disclosure{margin:8px 0;padding-top:0}
+.left-panel>.upload-card{margin-bottom:10px}
+#saveAllTools,#addAllToFoam{margin-top:6px}
+#modeHint,#foamPreviewHint,.outline-stats,.build-tag{display:none}
+.site-footer[hidden]{display:none}
+.foam-toolbar{overflow:visible;position:relative;z-index:4;gap:8px;padding:6px 12px;min-height:52px;align-items:center}
+.tool-menu>summary{cursor:pointer;list-style:none;font-size:12px;min-height:40px;display:flex;align-items:center;gap:12px;padding:0 12px;border-radius:6px}
+.tool-menu>summary::after{content:'⌄';color:#738069}
+.tool-menu[open]>summary,.tool-menu>summary:hover{background:#e7ecdf}
+.tool-menu .tb-icons{position:absolute;top:100%;left:10px;width:min(290px,calc(100% - 20px));display:grid;grid-template-columns:1fr;background:var(--panel);border:1px solid var(--line);border-radius:8px;box-shadow:0 8px 24px #28341e22;padding:6px;max-height:50dvh;overflow:auto}
+.tool-menu:not([open]) .tb-icons{display:none}
+.foam-toolbar .tool-menu button{width:100%;min-height:40px;height:auto;justify-content:flex-start;gap:12px;padding:8px;text-align:left;font-size:12px}
+.foam-toolbar .tool-menu button svg{flex:none}
+.sketch-palette{width:190px}
+.sketch-palette-head{font-size:11px;letter-spacing:0;min-height:40px;text-transform:none}
+.foam-inspector .ui-disclosure{margin:10px 0}
+.foam-tools>.foam-actions{margin-top:0}
+#foamStudio[data-has-tools=false] #foamArrange,#foamStudio[data-has-tools=false] #foamSaveTools{display:none}
+.foam-export>.primary{margin-top:10px}
+.foam-export .ui-disclosure label{display:flex;align-items:flex-start;gap:8px;font-size:12px;line-height:1.5;margin:10px 0}
+.foam-export .ui-disclosure label input{flex:none;margin-top:3px}
+#foamSelectionNote{font-size:12px}
+.canvas-footer{justify-content:space-between}
+.foam-photo-controls>.secondary{margin-bottom:12px}
+.foam-side h3{letter-spacing:0;text-transform:none}
+.tool-menu summary:focus-visible,.ui-disclosure summary:focus-visible{outline:2px solid #c7693d;outline-offset:2px;border-radius:4px}
+/* Workspaces use the viewport; inspectors scroll independently. */
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{flex-shrink:0}
+body .app-layout{flex:1;width:100%;max-width:none;margin:0;min-height:0;border:0;border-radius:0;overflow:hidden;align-items:stretch}
+.app-layout>.workspace{position:relative;top:auto;height:100%;min-height:0}
+.workspace .canvas-area{flex:1;height:auto;min-height:0}
+.workspace .canvas-top,.workspace .canvas-footer,.workspace .point-actions{flex-shrink:0}
+.app-layout>.left-panel,.app-layout>.right-panel{height:100%;min-height:0;max-height:100%;overflow-y:auto;scrollbar-width:thin}
+.canvas-footer #sheetSize{margin-left:auto}
+body #foamStudio{flex:1;width:100%;height:auto;min-height:0;margin:0;border:0;border-radius:0}
+#foamStudio .foam-side{max-height:100%;min-height:0}
+#foamStudio .foam-center{min-height:0}
+#foamStudio .foam-stage{min-height:0}
+body #libraryStudio{flex:1;min-height:0;overflow:auto}
+@media(max-width:1280px){
+ body:not([data-mobile-panel=capture]) .app-layout{height:auto;min-height:0}
+ body[data-mobile-panel=capture] .app-layout{overflow-y:auto}
+ body[data-mobile-panel=capture] .app-layout>.left-panel{height:auto;min-height:100%;max-width:none;max-height:none}
+}
+@media(max-width:767px){
+ body[data-mobile-panel=refine]:not(.canvas-focus) .app-layout{height:auto;min-height:0}
+ body[data-mobile-panel=refine] .app-layout>.workspace{height:34%;min-height:140px}
+ body[data-mobile-panel=refine] .app-layout>.right-panel{height:auto;min-height:0}
+}
+@media(max-width:767px){
+ .foam-toolbar{padding:4px 8px;gap:4px}
+ .tool-menu>summary{min-height:44px;padding:0 10px}
+ .foam-toolbar .tool-menu button{min-height:44px}
+ .ui-disclosure input[type=range]{min-height:44px}
+ .sketch-palette{width:174px}
+ #foamStudio[data-panel=settings] .foam-tabs,#foamStudio[data-panel=settings] .foam-toolbar,#foamStudio[data-panel=settings] .sketch-palette,#foamStudio[data-panel=settings] .foam-strip{display:none}
+ #foamStudio[data-panel=settings] .foam-center{height:28%;min-height:120px}
+}
