@@ -1,2 +1,2 @@
-import {autoCalibrate,warpExtended,extract,PAPERS} from './vision.js?v=20261024-scan2';
-export function prepareCapture(image,settings){const cal=autoCalibrate(image,settings.paper),paper=cal.paper,rect=warpExtended(image,cal.H,paper),paths=extract(rect,paper,settings.traceMethod==='dark'?settings.brightnessThreshold:settings.threshold,settings.minToolArea,settings.traceMethod,{weakRatio:settings.weakRatio,gapMm:settings.gapMm});return {cal,paper,rect,paths};}
+import {autoCalibrate,warpExtended,extract,PAPERS} from './vision.js?v=20261024-seg1';
+export function prepareCapture(image,settings){const cal=autoCalibrate(image,settings.paper),paper=cal.paper,rect=warpExtended(image,cal.H,paper),paths=settings.traceMethod==='tap'?[]:extract(rect,paper,settings.traceMethod==='dark'?settings.brightnessThreshold:settings.threshold,settings.minToolArea,settings.traceMethod,{weakRatio:settings.weakRatio,gapMm:settings.gapMm});return {cal,paper,rect,paths};}
