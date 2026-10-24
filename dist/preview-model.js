@@ -7,7 +7,7 @@ function nearest(p,poly){let best=null,distance=Infinity;for(let i=0;i<poly.leng
 export function computePreview(s,image,retrace=false){
  let tools=s.tools,fingers=s.fingers,selected=s.selected,toolMap=null;
  const warnings=[];
- if(retrace&&image){
+ if(retrace&&image&&s.traceMethod!=='tap'){
   const paths=extract(image,s.paper,s.traceMethod==='dark'?s.brightnessThreshold:s.threshold,s.minToolArea,s.traceMethod,traceOptions(s)),usedOld=new Set(),usedNew=new Set(),mapping=new Map(),pairs=[];
   paths.forEach((points,i)=>{const c=center(points),b=bounds(points);s.tools.forEach((t,j)=>{const p=center(t.points),old=bounds(t.points),d=Math.hypot(p[0]-c[0],p[1]-c[1]),limit=Math.max(12,Math.hypot(old.maxX-old.minX,old.maxY-old.minY)*.35);if(d<limit)pairs.push({i,j,d});});});
   for(const {i,j} of pairs.sort((a,b)=>a.d-b.d)){if(usedOld.has(j)||usedNew.has(i))continue;mapping.set(j,i);usedOld.add(j);usedNew.add(i);}
