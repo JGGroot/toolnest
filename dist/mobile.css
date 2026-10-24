@@ -251,3 +251,11 @@ body.outline-session #uploadBtn,body.outline-session .capture-actions,body.outli
 .outline-session-bar .secondary{background:transparent;color:#f4f7ef;border:1px solid #f4f7ef99}
 
 .build-tag{font-size:10px;color:#9aa48c;margin-left:6px;align-self:center}
+/* Native-app feel: no sideways page movement, no page zoom gestures, no selection callouts on controls.
+   Canvases set their own touch-action and keep pinch zoom. */
+html,body{max-width:100%;overflow-x:hidden;overflow-x:clip;overscroll-behavior-x:none}
+html{-webkit-text-size-adjust:100%;text-size-adjust:100%;touch-action:pan-x pan-y}
+body{-webkit-tap-highlight-color:transparent;overscroll-behavior-y:none}
+button,nav,.topbar,.foam-toolbar,.foam-strip,.lib-tabs,.sync-pill,svg,label{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+dialog{max-width:calc(100vw - 16px);overflow-x:hidden}
+@media(display-mode:standalone){.topbar{padding-top:env(safe-area-inset-top)}}

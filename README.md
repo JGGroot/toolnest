@@ -42,6 +42,8 @@ Corrects **planar perspective**. It does not solve radial lens distortion, raise
 
 ## Phone and tablet use
 
+Toolnest behaves like an installed app on phones: **Add to Home Screen** (Safari share menu, or Chrome's Install app) launches it full screen with its own icon (`manifest.json`, `icons/`). The page never scrolls sideways or zooms (only the layout, trace and photo views pinch-zoom), controls don't trigger text selection, and the phone header always fits one row: the save state shows as a dot on ☁ (green saved, amber saving, red not saved) and New project lives in Library.
+
 At widths up to 1280 px, bottom navigation switches between Capture, Edit outlines, and Fit & export. Phones show one focused panel at a time; tablets pair the canvas with the inspector. Capture keeps the complete tool list and offers both photo-library upload and a rear-camera file picker. Camera availability follows the browser/device. A native image decoder fallback handles browsers that cannot decode through ImageBitmap.
 
 Touch controls are at least 44 CSS px, numeric fields use 16 px text and decimal keyboards, and sliders have enlarged thumbs. The canvas supports anchored two-finger pinch/pan, a one-finger Pan mode, and a full-screen focus view. Tap the zoom percentage to reset and centre. Pinching rolls back an accidental initial tool drag. Outline points can be selected/dragged and added/removed through visible controls, without keyboard shortcuts. Pointer cancellation rolls back incomplete edits. Section changes preserve geometry. Safe-area insets, dynamic viewport heights, scrollable dialogs, and landscape focus view support small screens.

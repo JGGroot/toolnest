@@ -21,7 +21,7 @@ export function createCloud({toast,modal,foam,startToolPhoto}){
  const actions=document.querySelector('.top-actions'),pill=document.createElement('button'),button=document.createElement('button');
  pill.id='syncPill';pill.className='sync-pill';button.id='cloudBtn';button.className='icon-btn cloud-btn';button.setAttribute('aria-label','Account and cloud sync');button.textContent='☁';actions?.prepend(pill,button);
  // ---- Save indicator: always says where the work is and whether the last save worked.
- function showState(){const state=!user?'local':lastError?'error':dirty.size?'saving':'saved';pill.dataset.state=state;button.dataset.state=user?'on':'off';
+ function showState(){const state=!user?'local':lastError?'error':dirty.size?'saving':'saved';pill.dataset.state=state;button.dataset.state=user?'on':'off';button.dataset.sync=state;
   pill.textContent={local:'Saved on this device',error:'⚠ Not saved',saving:'Saving…',saved:'✓ Saved'}[state];
   pill.title={local:'Saved in this browser only. Sign in with ☁ to back up and use it on your phone.',error:`${lastError}. Click to try again.`,saving:'Saving to your account…',saved:`Saved to ${user?.email||'your account'}${lastSaved?' at '+new Date(lastSaved).toLocaleTimeString([],{hour:'numeric',minute:'2-digit'}):''}`}[state];
   button.title=user?`Signed in as ${user.email}`:'Sign in to sync across devices';const line=$('cloudStatus');if(line&&user)line.textContent=pill.title;}
