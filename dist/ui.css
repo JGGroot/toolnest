@@ -41,6 +41,21 @@
 .foam-photo-controls>.secondary{margin-bottom:12px}
 .foam-side h3{letter-spacing:0;text-transform:none}
 .tool-menu summary:focus-visible,.ui-disclosure summary:focus-visible{outline:2px solid #c7693d;outline-offset:2px;border-radius:4px}
+#tapControls{flex-shrink:0;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12px}
+.tap-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+#tapControls button{min-height:44px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:transparent;font-size:12px}
+.tap-engines{display:flex;gap:3px;padding:3px;border-radius:8px;background:#ecefe5}
+#tapControls button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 4px #0002}
+#tapControls #tapNegative[aria-pressed=true]{background:#f6ded3;border-color:#c7693d}
+#tapWork{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
+#tapProgress{width:90px;accent-color:var(--accent)}
+#tapStatus{flex:1;min-width:100px;overflow-wrap:anywhere}
+#tapCompare{white-space:pre-line;font-size:11px;margin-top:6px;color:#526454}
+#tapCompare span{display:block}#tapQuickTime{color:#1d79b4}#tapPreciseTime{color:#a342a5}
+.tap-outline{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke}
+.tap-mediapipe{stroke:#1d79b4}.tap-sam{stroke:#a342a5;stroke-dasharray:5 3}
+.tap-positive{fill:#1d79b4;stroke:white;stroke-width:.4}.tap-negative{fill:#c34c34;stroke:white;stroke-width:.4}
+#refinePanel>#traceMethod{width:100%;min-height:44px;margin-bottom:12px}
 /* Workspaces use the viewport; inspectors scroll independently. */
 body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
 .topbar{flex-shrink:0}
@@ -70,6 +85,7 @@ body #libraryStudio{flex:1;min-height:0;overflow:auto}
  .tool-menu>summary{min-height:44px;padding:0 10px}
  .foam-toolbar .tool-menu button{min-height:44px}
  .ui-disclosure input[type=range]{min-height:44px}
+ body[data-mobile-panel=refine] #tapControls{display:none}
  .sketch-palette{width:174px}
  #foamStudio[data-panel=settings] .foam-tabs,#foamStudio[data-panel=settings] .foam-toolbar,#foamStudio[data-panel=settings] .sketch-palette,#foamStudio[data-panel=settings] .foam-strip{display:none}
  #foamStudio[data-panel=settings] .foam-center{height:28%;min-height:120px}

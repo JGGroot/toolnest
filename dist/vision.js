@@ -1,6 +1,6 @@
-import {vectorCutPaths} from './cut-geometry.js?v=20261024-scan2';
-import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261024-scan2';
-import {edgeSilhouette} from './segmentation.js?v=20261024-scan2';
+import {vectorCutPaths} from './cut-geometry.js?v=20261024-seg1';
+import {fairOutline,cleanRing,roundCorners,hasCrossings} from './outline.js?v=20261024-seg1';
+import {edgeSilhouette} from './segmentation.js?v=20261024-seg1';
 import Clipper from './vendor/clipper.js';
 // All geometry is expressed in millimetres. No image leaves the browser.
 export const PAPERS={a4:[210,297],letter:[215.9,279.4]};
@@ -128,7 +128,7 @@ function untangle(ring,reference){
  if(!parts.length)return null;let best=parts[0];const ratio=Math.abs(polygonArea(best))/Math.abs(polygonArea(reference));if(ratio<.7||ratio>1.3)return null;
  if(Math.sign(polygonArea(best))!==Math.sign(polygonArea(reference)))best=best.reverse();best=simplify(best,.03);return hasCrossings(best)?null:best;
 }
-function refinePaths(paths,image,scale,options){if(options.snapEdges===false||!paths.length)return paths;const field=blurGray(image);return paths.map(p=>snapToEdges(p,field,scale)).sort((a,b)=>polygonArea(b)-polygonArea(a));}
+export function refinePaths(paths,image,scale,options){if(options.snapEdges===false||!paths.length)return paths;const field=blurGray(image);return paths.map(p=>snapToEdges(p,field,scale)).sort((a,b)=>polygonArea(b)-polygonArea(a));}
 // Rectify the sheet plus as much of the surrounding surface as the photo shows
 // (up to EXTEND_MM on each side, at no less than 2 px/mm), so tools longer than the sheet can be traced
 // while all four markers are visible. Alpha 0 marks pixels outside the photo.
