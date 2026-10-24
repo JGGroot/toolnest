@@ -1,4 +1,4 @@
-import {contours,refinePaths,PAPERS,polygonArea,simplify} from './vision.js?v=20261025-pho1';
+import {contours,refinePaths,PAPERS,polygonArea,simplify} from './vision.js?v=20261025-fpk1';
 export function pointToImage(p,rect){const s=rect.scale||rect.width/PAPERS[rect.paper||'a4'][0],[ox,oy]=rect.origin||[0,0];return [(p.x-ox)*s,(p.y-oy)*s];}
 export function imageToPoint(p,rect){const s=rect.scale||rect.width/PAPERS[rect.paper||'a4'][0],[ox,oy]=rect.origin||[0,0];return {x:p[0]/s+ox,y:p[1]/s+oy};}
 export function normalizedPrompts(points,rect){return points.map(p=>{const [x,y]=pointToImage(p,rect);if(x<0||y<0||x>=rect.width||y>=rect.height)throw Error('Tap inside the photographed area.');return {x:x/rect.width,y:y/rect.height,label:p.label};});}

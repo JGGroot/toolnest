@@ -1,5 +1,5 @@
-import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261025-pho1';
-import {fairOutline,cleanRing} from './outline.js?v=20261025-pho1';
+import {detectMarkers,homography,project,contours,simplify,polygonArea} from './vision.js?v=20261025-fpk1';
+import {fairOutline,cleanRing} from './outline.js?v=20261025-fpk1';
 // Scale for foam photos and flatbed scans, and pocket detection on an aligned foam photo.
 
 // ---- Scale target: a small printed card with the four coded squares (15 mm, 1.875 mm cells) in its
@@ -27,6 +27,22 @@ export function readScanDPI(buffer){const b=new DataView(buffer),n=b.byteLength;
  return jfif;}
 // Cameras usually write 72 or 96 dpi; anything at least 150 dpi is offered as a likely scan.
 export const likelyScanDPI=dpi=>Number.isFinite(dpi)&&dpi>=150&&dpi<=4800;
+
+// ---- Foam corners in a photo: the foam is the large region under the photo's centre that differs from
+// the table, whose colour is read from the photo's edges (Otsu threshold on the distance to it). Its
+// corners (TL, TR, BR, BL) are the region's extreme points along the two diagonals. Works on a reduced
+// copy; returns corners in the image's pixels, or null.
+export function findFoamCorners(image,maxSide=640){const k=Math.min(1,maxSide/Math.max(image.width,image.height)),w=Math.max(8,Math.round(image.width*k)),h=Math.max(8,Math.round(image.height*k)),n=w*h,src=image.data,rgb=new Float32Array(n*3);
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=(Math.min(image.height-1,Math.floor((y+.5)/k))*image.width+Math.min(image.width-1,Math.floor((x+.5)/k)))*4,o=(y*w+x)*3;rgb[o]=src[i];rgb[o+1]=src[i+1];rgb[o+2]=src[i+2];}
+ const edge=[];for(let x=0;x<w;x++)edge.push(x,(h-1)*w+x);for(let y=0;y<h;y++)edge.push(y*w,y*w+w-1);const median=c=>{const v=edge.map(p=>rgb[p*3+c]).sort((a,b)=>a-b);return v[v.length>>1];},bg=[0,1,2].map(median);
+ const dist=new Float32Array(n),hist=new Float64Array(256);for(let p=0;p<n;p++){const d=Math.min(255,Math.hypot(rgb[p*3]-bg[0],rgb[p*3+1]-bg[1],rgb[p*3+2]-bg[2]));dist[p]=d;hist[d|0]++;}
+ let sum=0;for(let t=0;t<256;t++)sum+=t*hist[t];let best=0,cut=40,wB=0,sB=0;for(let t=0;t<256;t++){wB+=hist[t];if(!wB)continue;const wF=n-wB;if(!wF)break;sB+=t*hist[t];const mB=sB/wB,mF=(sum-sB)/wF,v=wB*wF*(mB-mF)**2;if(v>best){best=v;cut=t;}}cut=Math.max(25,cut);
+ // Close small gaps (writing, glare) before taking the region under the centre.
+ let mask=new Uint8Array(n);for(let p=0;p<n;p++)mask[p]=dist[p]>cut?1:0;const r=Math.max(1,Math.round(Math.min(w,h)*.01));mask=erode(dilate(mask,w,h,r),w,h,r);
+ const seen=new Uint8Array(n),queue=new Int32Array(n);let start=-1;for(let rr=0;rr<Math.min(w,h)/4&&start<0;rr+=2)for(const [dx,dy] of [[0,0],[rr,0],[-rr,0],[0,rr],[0,-rr]]){const p=((h>>1)+dy)*w+(w>>1)+dx;if(mask[p]){start=p;break;}}if(start<0)return null;
+ let tail=0,count=0;seen[start]=1;queue[tail++]=start;const ext=[[Infinity,0],[-Infinity,0],[-Infinity,0],[Infinity,0]];
+ for(let head=0;head<tail;head++){const p=queue[head],x=p%w,y=p/w|0;count++;const a=x+y,b=x-y;if(a<ext[0][0])ext[0]=[a,p];if(b>ext[1][0])ext[1]=[b,p];if(a>ext[2][0])ext[2]=[a,p];if(b<ext[3][0])ext[3]=[b,p];for(const q of [x>0?p-1:-1,x<w-1?p+1:-1,y>0?p-w:-1,y<h-1?p+w:-1])if(q>=0&&mask[q]&&!seen[q]){seen[q]=1;queue[tail++]=q;}}
+ if(count<n*.05||count>n*.97)return null;return ext.map(([,p])=>[((p%w)+.5)/k,((p/w|0)+.5)/k]);}
 
 // ---- Pockets in an aligned two-tone foam photo. The aligned photo covers exactly the foam's top
 // surface, so its border is top surface; pockets are what clusters as the other colour.

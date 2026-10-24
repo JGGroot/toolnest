@@ -1,6 +1,6 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {markerBits,homography,project} from '../dist/vision.js?v=20261025-pho1';
-import {TARGET,targetCorners,findTarget,measureCorners,readScanDPI,likelyScanDPI,foamColours,detectPockets} from '../dist/foam-scan.js';
+import {markerBits,homography,project} from '../dist/vision.js?v=20261025-fpk1';
+import {TARGET,targetCorners,findTarget,findFoamCorners,measureCorners,readScanDPI,likelyScanDPI,foamColours,detectPockets} from '../dist/foam-scan.js';
 // Synthetic RGB image; `paint(x,y)` returns [r,g,b].
 function image(w,h,paint){const data=new Uint8ClampedArray(w*h*4);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const c=paint(x,y),i=(y*w+x)*4;data[i]=c[0];data[i+1]=c[1];data[i+2]=c[2];data[i+3]=255;}return {width:w,height:h,data};}
 test('A photographed scale target is found and measures a foam outline on its plane',()=>{
@@ -28,3 +28,11 @@ test('A scale card lying on the foam is ignored when its position is excluded',(
 test('Islands of top surface inside a pocket come back as holes, so they are cut around',()=>{const s=3,img=image(900,600,(x,y)=>{const u=x/s,v=y/s,r=Math.hypot(u-100,v-100),slot=u>180&&u<280&&v>60&&v<140,peg=Math.hypot(u-230,v-100)<8;return (r<40&&r>=15)||(slot&&!peg)?[225,200,40]:[70,72,75];});
  const found=detectPockets(img,300,foamColours(img));assert.equal(found.length,2);const ring=found.find(q=>Math.abs(q.area-Math.PI*(1600-225))/(Math.PI*1375)<.05),slot=found.find(q=>q!==ring);assert.ok(ring,`ring areas ${found.map(q=>q.area)}`);assert.equal(ring.islands,1);assert.equal(ring.shape[0].length,2);
  assert.equal(slot.islands,1);assert.ok(Math.abs(slot.area-(8000-Math.PI*64))/8000<.04,`slot ${slot.area}`);});
+test('Foam corners are found in a photo: a dark tray with yellow pockets on a lighter, unevenly lit table',()=>{
+ // Tray seen in perspective; a white sheet beside it and a shading gradient on the table.
+ const quad=[[180,140],[1180,110],[1210,720],[150,760]],inv=homography(quad,[[0,0],[1,0],[1,1],[0,1]]);
+ const img=image(1400,900,(x,y)=>{const [u,v]=project(inv,[x+.5,y+.5]);if(u>=0&&v>=0&&u<=1&&v<=1)return (u-.3)**2+(v-.5)**2<.02||(u>.6&&u<.9&&v>.2&&v<.4)?[225,200,40]:[70,68,72];if(x>1250&&y>300&&y<700)return [250,250,248];const g=215+Math.round(25*x/1400);return [g,g,g-5];});
+ const found=findFoamCorners(img);assert.ok(found,'corners found');found.forEach((p,i)=>assert.ok(Math.hypot(p[0]-quad[i][0],p[1]-quad[i][1])<12,`corner ${i}: ${p.map(Math.round)} vs ${quad[i]}`));
+ // Nothing distinct from the table: no corners.
+ assert.equal(findFoamCorners(image(400,300,()=>[230,230,230])),null);
+});
