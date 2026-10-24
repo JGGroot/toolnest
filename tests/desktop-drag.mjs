@@ -41,7 +41,7 @@ for(const [width,height] of [[1440,1000],[1024,800]]){
 }
 // Touch must still turn an accidental one-finger move into a pinch without moving a tool.
 {
- const ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));await load(p);await p.locator('[data-panel=workspace]').click();
+ const ctx=await browser.newContext({viewport:{width:390,height:844},isMobile:true,hasTouch:true}),p=await ctx.newPage();p.on('pageerror',e=>errors.push(e.message));await load(p);
  const cdp=await ctx.newCDPSession(p),touch=(type,points)=>cdp.send('Input.dispatchTouchEvent',{type,touchPoints:points.map(([x,y],i)=>({x,y,id:i+1,radiusX:3,radiusY:3,force:1}))});
  for(const studio of ['trace','foam']){
   if(studio==='foam')await p.locator('#foamStudioBtn').tap();

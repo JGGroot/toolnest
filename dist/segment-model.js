@@ -1,4 +1,4 @@
-import {contours,refinePaths,PAPERS,polygonArea,simplify} from './vision.js?v=20261025-shd1';
+import {contours,refinePaths,PAPERS,polygonArea,simplify} from './vision.js?v=20261025-pho1';
 export function pointToImage(p,rect){const s=rect.scale||rect.width/PAPERS[rect.paper||'a4'][0],[ox,oy]=rect.origin||[0,0];return [(p.x-ox)*s,(p.y-oy)*s];}
 export function imageToPoint(p,rect){const s=rect.scale||rect.width/PAPERS[rect.paper||'a4'][0],[ox,oy]=rect.origin||[0,0];return {x:p[0]/s+ox,y:p[1]/s+oy};}
 export function normalizedPrompts(points,rect){return points.map(p=>{const [x,y]=pointToImage(p,rect);if(x<0||y<0||x>=rect.width||y>=rect.height)throw Error('Tap inside the photographed area.');return {x:x/rect.width,y:y/rect.height,label:p.label};});}
@@ -9,9 +9,9 @@ export function bestMask(scores){let best=0;for(let i=1;i<scores.length;i++)if(N
 // Nearest-neighbour resampling preserves a binary region. The model's own edge is kept (edge snapping
 // pulled points onto chrome reflections and shadow edges, hopping in and out of it); cast shadow is
 // trimmed from the photo instead.
-export function maskToPaths(result,rect,paper='a4',options={}){const {snapEdges=false,trimShadow:trim=true}=options;const {mask,width,height}=result;if(!Number.isInteger(width)||!Number.isInteger(height)||width<2||height<2||width*height!==mask?.length||width*height>5e6)throw Error('Invalid segmentation mask.');const w=rect.width,h=rect.height,s=rect.scale||w/PAPERS[paper][0],[ox,oy]=rect.origin||[0,0],full=new Uint8Array(w*h);
+export function maskToPaths(result,rect,paper='a4',options={}){const {snapEdges=false,trimShadow:trim=true,bound=3}=options;const {mask,width,height}=result;if(!Number.isInteger(width)||!Number.isInteger(height)||width<2||height<2||width*height!==mask?.length||width*height>5e6)throw Error('Invalid segmentation mask.');const w=rect.width,h=rect.height,s=rect.scale||w/PAPERS[paper][0],[ox,oy]=rect.origin||[0,0],full=new Uint8Array(w*h);
  for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;full[i]=rect.data[i*4+3]&&mask[Math.min(height-1,Math.floor((y+.5)*height/h))*width+Math.min(width-1,Math.floor((x+.5)*width/w))]>.5?1:0;}
- const cell=result.view?result.view.window[2]/result.view.width:w/width,paths=contours(trim?trimShadow(full,rect,s,options.shadow):full,w,h,s,options.minArea??20).filter(p=>!p.some(([x,y])=>x*s<2||y*s<2||x*s>w-2||y*s>h-2)).map(p=>snapEdges?p:smoothRing(p,.6*Math.max(1,cell)/s));
+ const near=result.bound?rasterize(result.bound,w,h):null;if(near&&bound>0)clipNear(full,w,h,near,bound*s);const cell=result.view?result.view.window[2]/result.view.width:w/width,paths=contours(trim?trimShadow(full,rect,s,{...options.shadow,outline:near}):full,w,h,s,options.minArea??20).filter(p=>!p.some(([x,y])=>x*s<2||y*s<2||x*s>w-2||y*s>h-2)).map(p=>snapEdges?p:smoothRing(p,.6*Math.max(1,cell)/s));
  return refinePaths(paths,rect,s,{...options,snapEdges}).map(p=>p.map(([x,y])=>[x+ox,y+oy])).filter(p=>!options.points||options.points.filter(q=>q.label===1).some(q=>insidePath(q,p))).sort((a,b)=>polygonArea(b)-polygonArea(a));}
 // The mask is upscaled from the model's crop, so its edge is a staircase of `cell` photo pixels. A Gaussian
 // over the resampled ring (sigma in mm, about half a step) irons the stairs flat without rounding real corners
@@ -20,12 +20,20 @@ export function smoothRing(poly,sigma){if(!(sigma>0)||poly.length<4)return poly;
  for(let i=0;i<n;i++){const d=i*length/n;while(e<poly.length-1&&base+seg[e]<d)base+=seg[e++];const t=(d-base)/(seg[e]||1),a=poly[e],b=poly[(e+1)%poly.length];pts.push([a[0]+(b[0]-a[0])*t,a[1]+(b[1]-a[1])*t]);}
  const r=Math.ceil(3*sigma/(length/n)),g=Array.from({length:2*r+1},(_,k)=>Math.exp(-(((k-r)*length/n)**2)/(2*sigma*sigma))),total=g.reduce((a,b)=>a+b,0);
  return simplify(pts.map((_,i)=>{let x=0,y=0;for(let k=-r;k<=r;k++){const q=pts[(i+k+n)%n];x+=q[0]*g[k+r];y+=q[1]*g[k+r];}return [x/total,y/total];}),.03);}
+// A single tap's region may not stray more than `r` pixels beyond the Smart edges outline that chose the
+// object: the model sometimes takes in a patch of plain paper between handles, which no shadow test removes.
+// A chamfer distance from the outline's raster (1 inside) bounds it.
+export function clipNear(mask,w,h,ref,r){const d=new Float32Array(w*h);for(let i=0;i<d.length;i++)d[i]=ref[i]?0:1e9;
+ for(let y=0;y<h;y++)for(let x=0;x<w;x++){const i=y*w+x;if(!d[i])continue;let v=d[i];if(x>0)v=Math.min(v,d[i-1]+1);if(y>0){v=Math.min(v,d[i-w]+1);if(x>0)v=Math.min(v,d[i-w-1]+1.4);if(x<w-1)v=Math.min(v,d[i-w+1]+1.4);}d[i]=v;}
+ for(let y=h-1;y>=0;y--)for(let x=w-1;x>=0;x--){const i=y*w+x;if(!d[i])continue;let v=d[i];if(x<w-1)v=Math.min(v,d[i+1]+1);if(y<h-1){v=Math.min(v,d[i+w]+1);if(x<w-1)v=Math.min(v,d[i+w+1]+1.4);if(x>0)v=Math.min(v,d[i+w-1]+1.4);}d[i]=v;}
+ for(let i=0;i<mask.length;i++)if(mask[i]&&d[i]>r)mask[i]=0;return mask;}
 // A cast shadow is the paper beside the tool, only darker: the same colour balance and smooth. Peel such
 // pixels from the outside in, at most `depth` mm. A tool's dark rim, coloured grips and chrome highlights
 // fail the test and stop the peel. Pixels as bright as the paper are left too: peeling them also ate
-// chrome reflecting the sheet (tuned on the sample set against the Gemini silhouettes). The paper is measured per cell in a ring 2–5 mm outside the region,
+// chrome reflecting the sheet (tuned on the sample set against the Gemini silhouettes), except outside the
+// Smart edges `outline` (a raster, 1 inside) of a single tap, where plain paper is far likelier than chrome. The paper is measured per cell in a ring 2–5 mm outside the region,
 // since lighting varies across the sheet.
-export function trimShadow(mask,rect,s,{depth=2.5,dark=.5,light=.93,tint=.035,rough=.15,ring=[2,5],cell=16,maxShare=.3}={}){const w=rect.width,h=rect.height,d=rect.data;let x0=w,y0=h,x1=-1,y1=-1;
+export function trimShadow(mask,rect,s,{depth=2.5,dark=.5,light=.93,tint=.035,rough=.15,ring=[2,5],cell=16,maxShare=.3,outline=null,paperLight=1.05}={}){const w=rect.width,h=rect.height,d=rect.data;let x0=w,y0=h,x1=-1,y1=-1;
  for(let i=0;i<mask.length;i++)if(mask[i]){const x=i%w,y=(i/w)|0;if(x<x0)x0=x;if(x>x1)x1=x;if(y<y0)y0=y;if(y>y1)y1=y;}if(x1<0)return mask;
  const R=Math.ceil(ring[1]*s),bx=Math.max(0,x0-R-1),by=Math.max(0,y0-R-1),bw=Math.min(w-1,x1+R+1)-bx+1,bh=Math.min(h-1,y1+R+1)-by+1,n=bw*bh,m=new Uint8Array(n),dist=new Int16Array(n).fill(-1),q=new Int32Array(n),at=k=>((by+(k/bw|0))*w+bx+k%bw)*4,near=k=>{const x=k%bw,y=k/bw|0;return [x>0?k-1:-1,x<bw-1?k+1:-1,y>0?k-bw:-1,y<bh-1?k+bw:-1];};
  let t=0,area=0;for(let k=0;k<n;k++)if(mask[at(k)/4]){m[k]=1;dist[k]=0;q[t++]=k;area++;}
@@ -36,7 +44,7 @@ export function trimShadow(mask,rect,s,{depth=2.5,dark=.5,light=.93,tint=.035,ro
  for(let k=0;k<n;k++)if(dist[k]>=ring[0]*s&&d[at(k)+3]){const i=at(k),v=[d[i],d[i+1],d[i+2]];cells[((k/bw|0)/C|0)*cw+((k%bw)/C|0)].push(v);all.push(v);}
  const level=list=>{const ys=list.map(v=>v[0]+v[1]+v[2]).sort((a,b)=>a-b),y=ys[Math.floor(ys.length*.8)],lit=list.filter(v=>v[0]+v[1]+v[2]>=ys[Math.floor(ys.length/2)]),sum=lit.reduce((a,v)=>[a[0]+v[0],a[1]+v[1],a[2]+v[2]],[0,0,0]),z=sum[0]+sum[1]+sum[2]||1;return {y,c:[sum[0]/z,sum[1]/z,sum[2]/z]};};
  if(all.length<50)return mask;const global=level(all),papers=cells.map(c=>c.length>=40?level(c):global);
- const like=(k,v=colour(k))=>{if(!v)return false;const p=papers[((k/bw|0)/C|0)*cw+((k%bw)/C|0)],y=v[0]+v[1]+v[2],ratio=y/p.y;return ratio>=dark&&ratio<=light&&Math.abs(v[0]/y-p.c[0])+Math.abs(v[1]/y-p.c[1])+Math.abs(v[2]/y-p.c[2])<=tint;};
+ const like=(k,v=colour(k))=>{if(!v)return false;const p=papers[((k/bw|0)/C|0)*cw+((k%bw)/C|0)],y=v[0]+v[1]+v[2],ratio=y/p.y;return ratio>=dark&&ratio<=(outline?.[at(k)/4]===0?paperLight:light)&&Math.abs(v[0]/y-p.c[0])+Math.abs(v[1]/y-p.c[1])+Math.abs(v[2]/y-p.c[2])<=tint;};
  // Shadow brightness changes slowly; a sharp step to a neighbour still in the region is the tool's edge
  // or its texture (knurling, engraving), so the peel stops there. Texture is judged on single
  // pixels, since the 3×3 mean would blur it into a shadow-like grey.
@@ -63,6 +71,11 @@ export function maskIoU(a,b){let i=0,u=0;for(let k=0;k<a.length;k++){if(a[k]&&b[
 export function spreadPoints(poly,n=5){const xs=poly.map(p=>p[0]),ys=poly.map(p=>p[1]),long=Math.max(...xs)-Math.min(...xs)>=Math.max(...ys)-Math.min(...ys),along=long?xs:ys,across=long?ys:xs,lo=Math.min(...along),hi=Math.max(...along),a0=Math.min(...across),a1=Math.max(...across),out=[];
  const inside=(x,y)=>insidePath({x,y},poly),edge=(x,y)=>Math.min(...poly.map((a,i)=>{const b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));return Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);}));
  for(let k=0;k<n;k++){const from=lo+(hi-lo)*k/n,to=lo+(hi-lo)*(k+1)/n,step=Math.max(1,(to-from)/10,(a1-a0)/24);let best=null;for(let u=from+step/2;u<to;u+=step)for(let v=a0+step/2;v<a1;v+=step){const [x,y]=long?[u,v]:[v,u];if(!inside(x,y))continue;const d=edge(x,y);if(!best||d>best.d)best={x,y,d};}if(best)out.push([best.x,best.y]);}return out;}
+// The nearest point at least `depth` inside an outline (or as deep as it gets, if thinner), searched within
+// `reach` of p; units are the outline's. A finger lands on a tool's edge as often as on the tool.
+export function nudgeInside(poly,p,depth,reach=depth*4){const edge=(x,y)=>Math.min(...poly.map((a,i)=>{const b=poly[(i+1)%poly.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((x-a[0])*dx+(y-a[1])*dy)/(dx*dx+dy*dy||1)));return Math.hypot(x-a[0]-t*dx,y-a[1]-t*dy);})),inside=(x,y)=>insidePath({x,y},poly);
+ if(inside(p.x,p.y)&&edge(p.x,p.y)>=depth)return p;const step=depth/4,found=[];for(let y=p.y-reach;y<=p.y+reach;y+=step)for(let x=p.x-reach;x<=p.x+reach;x+=step)if(inside(x,y))found.push({x,y,d:edge(x,y),far:Math.hypot(x-p.x,y-p.y)});
+ if(!found.length)return p;const need=Math.min(depth,Math.max(...found.map(f=>f.d))*.8),best=found.filter(f=>f.d>=need).sort((a,b)=>a.far-b.far)[0];return {...p,x:best.x,y:best.y};}
 export function boxIoU(a,b){const w=Math.max(0,Math.min(a[2],b[2])-Math.max(a[0],b[0])),h=Math.max(0,Math.min(a[3],b[3])-Math.max(a[1],b[1])),i=w*h,u=(a[2]-a[0])*(a[3]-a[1])+(b[2]-b[0])*(b[3]-b[1])-i;return u>0?i/u:0;}
 // The classical outline under (or within 6 mm of) a tap, as a pixel box in the rectified image.
 export function proposalBox(rect,tap){const s=rect.scale||rect.width/PAPERS[rect.paper||'a4'][0],[ox,oy]=rect.origin||[0,0],near=(p,q)=>Math.min(...p.map((a,i)=>{const b=p[(i+1)%p.length],dx=b[0]-a[0],dy=b[1]-a[1],t=Math.max(0,Math.min(1,((q.x-a[0])*dx+(q.y-a[1])*dy)/(dx*dx+dy*dy||1)));return Math.hypot(q.x-a[0]-t*dx,q.y-a[1]-t*dy);}));const p=(rect.proposals||[]).find(p=>insidePath(tap,p))||(rect.proposals||[]).find(p=>near(p,tap)<6);if(!p)return null;const px=p.map(v=>[(v[0]-ox)*s,(v[1]-oy)*s]),xs=px.map(v=>v[0]),ys=px.map(v=>v[1]),box=[Math.min(...xs),Math.min(...ys),Math.max(...xs),Math.max(...ys)];box.outline=px;return box;}

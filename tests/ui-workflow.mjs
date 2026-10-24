@@ -18,13 +18,12 @@ try{
   assert.equal(workspace.width,width);
   assert.ok(Math.abs(workspace.y+workspace.height-(width<=1280?932:1000))<2);
   assert.equal(await page.locator('#advanced').getAttribute('open'),null);
-  if(await page.locator('[data-panel=refine]').isVisible())await page.locator('[data-panel=refine]').click();
+  if(await page.locator('#settingsBtn').isVisible())await page.locator('#settingsBtn').click();
   await page.locator('[data-outline-preset=balanced]').click();
   await page.waitForFunction(()=>document.getElementById('previewStatus').dataset.state==='ready');
   await page.locator('summary').filter({hasText:'Fine-tune outline'}).click();
   assert.ok(await page.locator('#smoothingMode').isVisible());
   await page.locator('summary').filter({hasText:'Fine-tune outline'}).click();
-  if(await page.locator('[data-panel=capture]').isVisible())await page.locator('[data-panel=capture]').click();
   await page.locator('#addAllToFoam').click();
   await page.waitForFunction(()=>document.querySelectorAll('.foam-instance').length===3);
   // Menus expose labelled choices, dismiss after an action, and preserve focus.

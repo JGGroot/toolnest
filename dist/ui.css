@@ -41,19 +41,17 @@
 .foam-photo-controls>.secondary{margin-bottom:12px}
 .foam-side h3{letter-spacing:0;text-transform:none}
 .tool-menu summary:focus-visible,.ui-disclosure summary:focus-visible{outline:2px solid #c7693d;outline-offset:2px;border-radius:4px}
-#tapControls{flex-shrink:0;padding:8px 12px;border-bottom:1px solid var(--line);background:var(--panel);font-size:12px}
-.tap-actions{display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-#tapControls button{min-height:44px;border:1px solid var(--line);border-radius:6px;padding:6px 10px;background:transparent;font-size:12px}
-.tap-engines{display:flex;gap:3px;padding:3px;border-radius:8px;background:#ecefe5}
-#tapControls button[aria-pressed=true]{background:#fff;color:var(--ink);box-shadow:0 1px 4px #0002}
-#tapControls #tapNegative[aria-pressed=true]{background:#f6ded3;border-color:#c7693d}
-#tapWork{display:flex;gap:8px;align-items:center;flex-wrap:wrap;margin-top:6px}
-#tapProgress{width:90px;accent-color:var(--accent)}
-#tapStatus{flex:1;min-width:100px;overflow-wrap:anywhere}
-#tapCompare{white-space:pre-line;font-size:11px;margin-top:6px;color:#526454}
-#tapCompare span{display:block}#tapQuickTime{color:#1d79b4}#tapPreciseTime{color:#a342a5}
-.tap-outline{fill:none;stroke-width:1.5;vector-effect:non-scaling-stroke}
-.tap-mediapipe{stroke:#1d79b4}.tap-sam{stroke:#a342a5;stroke-dasharray:5 3}
+/* AI Trace: ＋/− live in the canvas toolbar; status floats over the top of the canvas. */
+.tap-tools{display:contents}.tap-tools[hidden]{display:none}
+.vertical-tools button[aria-pressed=true]#tapAdd,.vertical-tools button[aria-pressed=true]#tapRemove{background:#f6ded3;color:#a8481f}
+#tapWork{position:absolute;top:10px;left:50%;transform:translateX(-50%);z-index:6;display:flex;gap:8px;align-items:center;max-width:calc(100% - 24px);padding:6px 8px 6px 14px;border:1px solid var(--line);border-radius:999px;background:#fffffff2;box-shadow:0 4px 14px #0001;font-size:12px;white-space:nowrap}
+#tapWork[hidden]{display:none}#tapWork.error{border-color:#e3b4a0;color:#8f3b17}
+#tapWork button{border:1px solid var(--line);border-radius:999px;padding:4px 10px;background:#fff;font-size:12px;min-height:30px}
+#tapProgress{width:70px;accent-color:var(--accent)}#tapStatus{overflow:hidden;text-overflow:ellipsis}
+/* Tool name above the canvas, editable in place like a document title. */
+.tool-name-field{flex:0 1 260px;min-width:80px;height:36px;padding:0 9px;border:1px solid transparent;border-radius:6px;background:transparent;color:var(--ink);font-size:15px;font-weight:600;text-overflow:ellipsis}
+.tool-name-field:hover:not(:disabled){border-color:var(--line);background:#fff}.tool-name-field:focus{outline:none;border-color:var(--accent);background:#fff}
+.tool-name-field:disabled{color:var(--muted);font-weight:500}.tool-name-field::placeholder{color:var(--muted);font-weight:500}
 .tap-positive{fill:#1d79b4;stroke:white;stroke-width:.4}.tap-negative{fill:#c34c34;stroke:white;stroke-width:.4}
 #refinePanel>#traceMethod{width:100%;min-height:44px;margin-bottom:12px}
 /* Workspaces use the viewport; inspectors scroll independently. */
@@ -85,10 +83,18 @@ body #libraryStudio{flex:1;min-height:0;overflow:auto}
  .tool-menu>summary{min-height:44px;padding:0 10px}
  .foam-toolbar .tool-menu button{min-height:44px}
  .ui-disclosure input[type=range]{min-height:44px}
- body[data-mobile-panel=refine] #tapControls{display:none}
  .sketch-palette{width:174px}
  #foamStudio[data-panel=settings] .foam-tabs,#foamStudio[data-panel=settings] .foam-toolbar,#foamStudio[data-panel=settings] .sketch-palette,#foamStudio[data-panel=settings] .foam-strip{display:none}
  #foamStudio[data-panel=settings] .foam-center{height:28%;min-height:120px}
 }
 /* What the tap model saw: its region before edge snapping, the zoomed window and the taps it was given. */
 .tap-seen{opacity:.85;image-rendering:pixelated}.tap-window{fill:none;stroke:#ff6018;stroke-width:1;stroke-dasharray:4 3;vector-effect:non-scaling-stroke}.tap-window-label{fill:#c2410c;font-weight:700;paint-order:stroke;stroke:#fffc;stroke-width:3px}.tap-auto{fill:none;stroke:#ff6018;stroke-width:1.5;vector-effect:non-scaling-stroke}
+/* Phones: the view tabs keep their natural width and the tool name takes what is left. */
+@media(max-width:767px){.workspace .canvas-top{flex-wrap:nowrap}.tool-name-field{flex:1 1 auto;min-width:0;padding:0 6px}.workspace .view-tabs{flex:0 0 auto}.workspace .view-tabs button{flex:0 0 auto;min-width:0;padding:5px 7px;font-size:11px}}
+/* v33: no bottom nav. The row above the canvas holds the photo button, the tool name, settings and full screen. */
+.photo-btn,.settings-btn{display:grid;place-items:center;flex:0 0 auto}.photo-btn svg,.settings-btn svg{width:20px;height:20px}
+.photo-btn{color:#fff;background:var(--accent);border-color:var(--accent)}.photo-btn:hover{filter:brightness(1.05)}
+.canvas-options .settings-btn{display:none}.settings-btn[aria-pressed=true]{background:#e9eee1;color:#465f34}
+@media(max-width:1280px){:root:root{--mobile-nav-height:0px}}@media(max-width:767px){.canvas-options .settings-btn{display:grid}}
+.workspace .canvas-top .tool-name-field{flex:1 1 auto;max-width:none}.workspace .canvas-top{justify-content:flex-start}
+.save-list{display:grid;gap:8px;margin:12px 0 16px}.save-row{display:flex;gap:10px;align-items:center}.save-row input[type=checkbox]{width:20px;height:20px;flex:0 0 auto;accent-color:var(--accent)}.save-row .form-input{flex:1;min-width:0}

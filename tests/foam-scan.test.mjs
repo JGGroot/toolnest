@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {markerBits,homography,project} from '../dist/vision.js?v=20261025-shd1';
+import {markerBits,homography,project} from '../dist/vision.js?v=20261025-pho1';
 import {TARGET,targetCorners,findTarget,measureCorners,readScanDPI,likelyScanDPI,foamColours,detectPockets} from '../dist/foam-scan.js';
 // Synthetic RGB image; `paint(x,y)` returns [r,g,b].
 function image(w,h,paint){const data=new Uint8ClampedArray(w*h*4);for(let y=0;y<h;y++)for(let x=0;x<w;x++){const c=paint(x,y),i=(y*w+x)*4;data[i]=c[0];data[i+1]=c[1];data[i+2]=c[2];data[i+3]=255;}return {width:w,height:h,data};}

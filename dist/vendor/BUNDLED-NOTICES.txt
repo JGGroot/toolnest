@@ -59,18 +59,3 @@ MagicTouch float32 model version 1, Google, Apache-2.0.
 Weights: https://storage.googleapis.com/mediapipe-models/interactive_segmenter/magic_touch/float32/1/magic_touch.tflite
 Model card and licence: https://storage.googleapis.com/mediapipe-assets/Model%20Card%20MagicTouch.pdf
 Licence text: MEDIAPIPE-LICENSE.txt
-
-Transformers.js 3.5.0, copyright Hugging Face, Apache-2.0.
-Runtime: https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0/dist/transformers.min.js
-Source: https://github.com/huggingface/transformers.js/tree/3.5.0
-Licence text: TRANSFORMERS-LICENSE.txt
-Its bundled ONNX Runtime Web dependency is pinned by that release to
-1.22.0-dev.20250409-89f8206ba4; copyright Microsoft, MIT.
-Source: https://github.com/microsoft/onnxruntime
-Licence text: ONNXRUNTIME-LICENSE.txt
-
-SlimSAM-77 uniform, copyright Zigeng Chen and contributors, Apache-2.0.
-ONNX export: Xenova/slimsam-77-uniform, revision 5850ab45f587c112167512ffef949107115e26a0.
-Source: https://github.com/czg1225/SlimSAM
-Model: https://huggingface.co/Xenova/slimsam-77-uniform/tree/5850ab45f587c112167512ffef949107115e26a0
-Licence text: SLIMSAM-LICENSE.txt
