@@ -1,5 +1,5 @@
-import {PAPERS,markerBits,markerCorners} from './vision.js?v=20261025-seg5';
-import {TARGET,targetCorners} from './foam-scan.js?v=20261025-seg5';
+import {PAPERS,markerBits,markerCorners} from './vision.js?v=20261025-hdr3';
+import {TARGET,targetCorners} from './foam-scan.js?v=20261025-hdr3';
 const NS='http://www.w3.org/2000/svg';
 const paperName=paper=>paper==='letter'?'US Letter':'A4';
 function page(paper){if(!PAPERS[paper])throw Error('Unsupported paper size');return PAPERS[paper];}

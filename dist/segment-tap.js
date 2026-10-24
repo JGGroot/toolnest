@@ -1,4 +1,4 @@
-import {pointToImage,pickCandidate,zoomWindow,proposalBox,spreadPoints} from './segment-model.js?v=20261025-seg5';
+import {pointToImage,pickCandidate,zoomWindow,proposalBox,spreadPoints} from './segment-model.js?v=20261025-hdr3';
 // Two passes per tap. The model first sees the whole rectified photo (downscaled) to find which object
 // was tapped; it then sees just that object, cropped from the full-resolution photo, so the mask is
 // sharper and the model is not tempted to answer "the sheet".

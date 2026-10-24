@@ -1,8 +1,8 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {maskToPaths,pointToImage,imageToPoint,normalizedPrompts,validPrompts,bestMask,promptTarget} from '../dist/segment-model.js?v=20261025-seg5';
-import {bounds} from '../dist/vision.js?v=20261025-seg5';
-import {computePreview,DEFAULT_SETTINGS} from '../dist/preview-model.js?v=20261025-seg5';
+import {maskToPaths,pointToImage,imageToPoint,normalizedPrompts,validPrompts,bestMask,promptTarget} from '../dist/segment-model.js?v=20261025-hdr3';
+import {bounds} from '../dist/vision.js?v=20261025-hdr3';
+import {computePreview,DEFAULT_SETTINGS} from '../dist/preview-model.js?v=20261025-hdr3';
 function fixture(shape,{origin=[0,0],scale=3,width=360,height=390}={}){const mask=new Uint8Array(width*height),data=new Uint8ClampedArray(width*height*4);for(let y=0;y<height;y++)for(let x=0;x<width;x++){const i=y*width+x,on=shape(x/scale+origin[0],y/scale+origin[1]);mask[i]=on?1:0;data[i*4]=data[i*4+1]=data[i*4+2]=on?25:245;data[i*4+3]=255;}return {result:{mask,width,height},rect:{data,width,height,origin,scale}};}
 function near(a,b,tolerance=.3){assert.ok(Math.abs(a-b)<=tolerance,`${a} differs from ${b}`);}
 test('Rectangle and circle masks retain millimetre dimensions with real-edge snapping',()=>{
@@ -13,7 +13,7 @@ test('Prompts map through rectified origins and non-default pixel scale without 
 test('A downscaled mask maps back to source pixels and snapping ignores transparent photo regions',()=>{const {result,rect}=fixture((x,y)=>x>=20&&x<50&&y>=25&&y<85);const mask=new Uint8Array(120*130);for(let y=0;y<130;y++)for(let x=0;x<120;x++)mask[y*120+x]=result.mask[y*3*360+x*3];const b=bounds(maskToPaths({mask,width:120,height:130},rect)[0]);near(b.maxX-b.minX,30);near(b.maxY-b.minY,60);for(let i=3;i<rect.data.length;i+=4)rect.data[i]=0;assert.equal(maskToPaths(result,rect).length,0);});
 test('Only a positive-prompt region is retained; invalid masks and prompt metadata are rejected',()=>{const {result,rect}=fixture((x,y)=>(x>=10&&x<25&&y>=20&&y<60)||(x>=70&&x<90&&y>=20&&y<60));const paths=maskToPaths(result,rect,'a4',{points:[{x:15,y:30,label:1}]});assert.equal(paths.length,1);assert.ok(bounds(paths[0]).maxX<30);assert.throws(()=>maskToPaths({mask:new Uint8Array(3),width:2,height:2},rect));assert.equal(validPrompts({engine:'sam',points:[{x:1,y:2,label:1}]}),true);for(const points of [[{x:1,y:2,label:0}],[{x:NaN,y:2,label:1}],Array(65).fill({x:1,y:2,label:1})])assert.equal(validPrompts({engine:'sam',points}),false);assert.equal(bestMask([.2,.9,.5]),1);});
 test('Tap previews never retrace away prompt tools when smoothing or threshold changes',()=>{const tools=[{name:'Tapped',points:[[40,40],[60,40],[60,80],[40,80]],tap:{engine:'sam',points:[{x:50,y:60,label:1}]}}],s={...DEFAULT_SETTINGS,paper:'a4',traceMethod:'tap',tools,fingers:[],selected:0};const {rect}=fixture(()=>false);const a=computePreview(s,rect,true),b=computePreview({...s,smoothing:4,threshold:200},rect,true);assert.deepEqual(a.tools,tools);assert.deepEqual(b.tools,tools);assert.equal(promptTarget(tools,{x:50,y:60},0),0);assert.equal(promptTarget(tools,{x:90,y:60},0),-1);assert.equal(promptTarget(tools,{x:90,y:60},0,true),0);});
-import {componentAt,pickCandidate,zoomWindow,proposalBox,rasterize,maskIoU,spreadPoints} from '../dist/segment-model.js?v=20261025-seg5';
+import {componentAt,pickCandidate,zoomWindow,proposalBox,rasterize,maskIoU,spreadPoints} from '../dist/segment-model.js?v=20261025-hdr3';
 const grid=(w,h,on)=>{const m=new Uint8Array(w*h);for(let y=0;y<h;y++)for(let x=0;x<w;x++)m[y*w+x]=on(x,y)?1:0;return m;};
 test('The region under a tap is chosen: sheet-sized answers are rejected, whole tools beat parts, outlines decide',()=>{const w=100,h=80,tool=grid(w,h,(x,y)=>x>=20&&x<70&&y>=30&&y<40),part=grid(w,h,(x,y)=>x>=20&&x<35&&y>=30&&y<40),sheet=grid(w,h,()=>true),apart=grid(w,h,(x,y)=>(x>=20&&x<70&&y>=30&&y<40)||(x>=80&&y>=70));
  const c=componentAt(apart,w,h,30,35);assert.equal(c.count,500);assert.equal(c.edges,0);assert.deepEqual(c.box,[20,30,70,40]);assert.equal(componentAt(tool,w,h,5,5,2),null);
