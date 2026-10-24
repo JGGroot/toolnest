@@ -2,7 +2,7 @@ import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mj
 import assert from 'node:assert/strict';
 import {DEFAULT_SETTINGS} from '../dist/preview-model.js';
 import {DEFAULT_FOAM,rectShape} from '../dist/foam-model.js';
-const base=process.env.TOOLNEST_URL||'http://127.0.0.1:3000';
+const base=process.env.TOOLNEST_URL||'http://127.0.0.1:3000/?sample';
 const browser=await chromium.launch({executablePath:process.env.TOOLNEST_BROWSER||'/usr/bin/chromium',headless:true,proxy:process.env.TOOLNEST_PROXY?{server:process.env.TOOLNEST_PROXY}:undefined,args:['--no-sandbox']});
 const trace=[{name:'Wrench',points:[[45,55],[70,55],[70,120],[45,120]]},{name:'Driver',points:[[100,70],[120,70],[120,145],[100,145]]}];
 const project={...DEFAULT_SETTINGS,format:'toolnest-project',version:2,name:'Drag regression',paper:'a4',tools:trace,fingers:[{x:70,y:85,r:8,tool:0}],foamDesigner:{name:'Drag drawer',foam:{...DEFAULT_FOAM,width:500,height:400,keepouts:[{id:'area',name:'Existing pocket',shape:rectShape(350,250,60,60)}]},tools:[{id:'a',name:'Wrench',shape:rectShape(0,0,40,100),x:40,y:50,depth:20,rotation:0,zones:[{id:'region',shape:rectShape(0,0,40,20),depth:30}]},{id:'b',name:'Driver',shape:rectShape(0,0,25,100),x:220,y:80,depth:20,rotation:30,zones:[]}]}};

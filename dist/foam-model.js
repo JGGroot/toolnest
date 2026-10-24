@@ -1,4 +1,4 @@
-import {validPhoto} from './stock-photo-model.js?v=20261024-projects1';
+import {validPhoto} from './stock-photo-model.js?v=20261024-tools1';
 import clip from './vendor/polygon-clipping.js';
 export const DEFAULT_FOAM={width:600,height:400,thickness:50,base:5,margin:10,spacing:8};
 const finite=n=>typeof n==='number'&&Number.isFinite(n);
@@ -26,7 +26,7 @@ export function checkLayout(tools,foam){
   if(b.minX<foam.margin-.01||b.minY<foam.margin-.01||b.maxX>foam.width-foam.margin+.01||b.maxY>foam.height-foam.margin+.01)issues.push({type:'bounds',tools:[i],message:`${t.name}: outside edge margin`});
   if(t.depth>foam.thickness-foam.base+.001||(t.zones||[]).some(z=>z.depth>foam.thickness-foam.base+.001))issues.push({type:'depth',tools:[i],message:`${t.name}: insufficient foam beneath pocket`});
   for(const zone of areas){if(apart(b,zone.b))continue;const overlap=clip.intersection(shape,zone.shape);if(shapeArea(overlap)>.01||foam.spacing>0&&shapesCloserThan(shape,zone.shape,foam.spacing-.05))issues.push({type:'keepout',tools:[i],message:`${t.name}: too close to no-cut area ${zone.name}`});}
-  for(let j=0;j<i;j++){const a=geometry[j];if(apart(b,a.b)||(t.lock&&t.lock===tools[j].lock))continue;const overlap=clip.intersection(shape,a.shape);if(shapeArea(overlap)>.01)continue;if(foam.spacing>0&&shapesCloserThan(shape,a.shape,foam.spacing-.05))issues.push({type:'spacing',tools:[j,i],message:`${tools[j].name} / ${t.name}: less than ${foam.spacing} mm apart`});}
+  for(let j=0;j<i;j++){const a=geometry[j];if(apart(b,a.b)||(t.lock&&t.lock===tools[j].lock))continue;const overlap=clip.intersection(shape,a.shape);if(shapeArea(overlap)>.01)continue;if(foam.spacing>0&&shapesCloserThan(shape,a.shape,foam.spacing-.05)){const gap=closestGap(shape,a.shape,foam.spacing);issues.push({type:'spacing',tools:[j,i],gap,message:`${tools[j].name} / ${t.name}: ${gap?gap.d.toFixed(1)+' mm apart, ':''}less than ${foam.spacing} mm`});}}
  }
  return issues;
 }
@@ -38,6 +38,9 @@ function shapesCloserThan(a,b,limit){
  return near(flatten(a),segments(b))||near(flatten(b),segments(a));
 }
 
+// The closest pair of points between two shapes (vertex to edge, both ways), searching only
+// within `limit` mm; null when nothing is that close.
+export function closestGap(a,b,limit){let best=null;const pass=(from,to,swap)=>{const edges=to.flatMap(poly=>poly.flatMap(ring=>ring.slice(1).map((w,i)=>[ring[i],w])));for(const p of from.flatMap(poly=>poly.flatMap(ring=>ring.slice(0,-1))))for(const [v,w] of edges){if(Math.min(v[0],w[0])-limit>p[0]||Math.max(v[0],w[0])+limit<p[0]||Math.min(v[1],w[1])-limit>p[1]||Math.max(v[1],w[1])+limit<p[1])continue;const dx=w[0]-v[0],dy=w[1]-v[1],t=Math.max(0,Math.min(1,((p[0]-v[0])*dx+(p[1]-v[1])*dy)/(dx*dx+dy*dy||1))),q=[v[0]+t*dx,v[1]+t*dy],d=Math.hypot(p[0]-q[0],p[1]-q[1]);if(d<=limit&&(!best||d<best.d))best=swap?{p:q,q:p,d}:{p,q,d};}};pass(a,b,false);pass(b,a,true);return best;}
 export function findPlacement(tool,placed,foam){const blockers=[...placed.map(t=>extent(posed(t))),...(foam.keepouts||[]).map(z=>extent(z.shape))],size=extent(posed({...tool,x:0,y:0})),xs=[foam.margin,...blockers.map(b=>b.maxX+foam.spacing)],ys=[foam.margin,...blockers.map(b=>b.maxY+foam.spacing)];for(const y of ys.sort((a,b)=>a-b))for(const x of xs.sort((a,b)=>a-b))if(x+size.maxX<=foam.width-foam.margin&&y+size.maxY<=foam.height-foam.margin&&blockers.every(b=>x+size.maxX+foam.spacing<=b.minX+.001||b.maxX+foam.spacing<=x+.001||y+size.maxY+foam.spacing<=b.minY+.001||b.maxY+foam.spacing<=y+.001))return {x,y};return null;}
 export function autoArrange(tools,foam){const result=[];for(const t of clone(tools)){const position=findPlacement(t,result,foam);if(!position)throw Error('No automatic arrangement found. Rotate or move tools manually, or enlarge the foam.');Object.assign(t,position);result.push(t);}return result;}
 // Parametric cutouts keep a `spec` beside their outline so they stay editable:

@@ -1,5 +1,5 @@
 import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';import assert from 'node:assert/strict';import {readFileSync,writeFileSync} from 'node:fs';import {PNG} from '/opt/codex/cua_node/lib/node_modules/pngjs/lib/png.js';import {STOCK,stockFixture} from './stock-fixture.mjs';
-const baseURL=process.env.TOOLNEST_URL||'http://127.0.0.1:3000';
+const baseURL=process.env.TOOLNEST_URL||'http://127.0.0.1:3000/?sample';
 const fixture=stockFixture();writeFileSync('/tmp/toolnest-stock.png',PNG.sync.write({width:fixture.width,height:fixture.height,data:Buffer.from(fixture.data)}));const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox','--use-gl=angle','--use-angle=swiftshader','--enable-unsafe-swiftshader']});const errors=[];
 const ready=async p=>p.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3&&document.getElementById('previewStatus').dataset.state==='ready');
 async function point(p,id,[x,y]){return p.locator('#'+id).evaluate((svg,[x,y])=>{const p=new DOMPoint(x,y).matrixTransform(svg.getScreenCTM());return {x:p.x,y:p.y};},[x,y]);}

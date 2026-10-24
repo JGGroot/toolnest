@@ -1,5 +1,5 @@
 import clip from './vendor/polygon-clipping.js';
-import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-projects1';
+import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261024-tools1';
 // Generators and edits for parametric cutouts (see validSpec in foam-model.js) and for
 // operations that combine or repeat tools.
 // Closed centripetal Catmull-Rom spline through the clicked points, sampled finely enough for cutting.
@@ -57,3 +57,12 @@ export function sketchStep(tool,pts,p,typed={},{radius=0,snap=true}={}){
 export function placedRing({spec,centre,rotation}){const ring=specRing(spec),b=extent([[ring]]),cx=(b.minX+b.maxX)/2,cy=(b.minY+b.maxY)/2,c=Math.cos(rotation*deg),s=Math.sin(rotation*deg);return ring.map(([x,y])=>[(x-cx)*c-(y-cy)*s+centre[0],(x-cx)*s+(y-cy)*c+centre[1]]);}
 // A tool whose posed bounding box is centred on `centre`.
 export function sketchedTool({spec,centre,rotation},fields){const {shape,spec:local}=fromSpec(spec),t={id:uid(),x:0,y:0,rotation:((rotation%360)+360)%360,shape,spec:local,zones:[],...fields},b=extent(posed(t));t.x=centre[0]-b.maxX/2;t.y=centre[1]-b.maxY/2;return t;}
+// Scale a tool in its own (unrotated) axes about its centre on the layout; regions and shape
+// parameters scale with it.
+export function scaleTool(t,sx,sy){const b0=extent(posed(t)),cx=(b0.minX+b0.maxX)/2,cy=(b0.minY+b0.maxY)/2,S=shape=>shape.map(poly=>poly.map(r=>r.map(([x,y])=>[x*sx,y*sy]))),out={...t,shape:S(t.shape),zones:t.zones.map(z=>({...z,shape:S(z.shape)}))};
+ if(t.spec)out.spec=t.spec.points?{...t.spec,points:t.spec.points.map(([x,y])=>[x*sx,y*sy])}:{...t.spec,w:t.spec.w*sx,h:t.spec.h*sy,...(t.spec.r!==undefined?{r:t.spec.r*Math.min(sx,sy)}:{})};
+ const b1=extent(posed({...out,x:0,y:0}));out.x=cx-b1.maxX/2;out.y=cy-b1.maxY/2;return out;}
+// Mirror a tool across the screen's vertical ('x') or horizontal ('y') axis. Flipping its own axis and
+// negating the rotation gives the same result at any rotation.
+export function mirrorTool(t,axis){const b=extent(t.shape),k=axis==='x'?0:1,size=k?b.maxY:b.maxX,flipPoint=p=>{const q=[...p];q[k]=size-q[k];return q;},flip=shape=>shape.map(poly=>poly.map(r=>r.map(flipPoint).reverse()));
+ return {...t,shape:flip(t.shape),zones:t.zones.map(z=>({...z,shape:flip(z.shape)})),...(t.spec?.points?{spec:{...t.spec,points:t.spec.points.map(flipPoint)}}:{}),rotation:(360-t.rotation)%360};}

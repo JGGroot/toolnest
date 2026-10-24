@@ -4,7 +4,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 const ready=async p=>{await p.waitForFunction(()=>document.getElementById('previewStatus').dataset.state==='ready'&&document.querySelectorAll('.tool-path').length===3);};
 async function input(p,id,value){await p.locator('#'+id).evaluate((el,v)=>{el.focus();el.value=String(v);el.dispatchEvent(new Event('input',{bubbles:true}));},value);}
 for(const [w,h,touch] of [[1440,1000,false],[390,844,true],[820,1180,true]]){
- const ctx=await browser.newContext({viewport:{width:w,height:h},hasTouch:touch,isMobile:touch});const p=await ctx.newPage();p.setDefaultTimeout(15000);p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:3000');await ready(p);
+ const ctx=await browser.newContext({viewport:{width:w,height:h},hasTouch:touch,isMobile:touch});const p=await ctx.newPage();p.setDefaultTimeout(15000);p.on('pageerror',e=>errors.push(e.message));await p.goto('http://127.0.0.1:3000/?sample');await ready(p);
  await p.locator('#addAllToFoam').evaluate(e=>e.click());await p.waitForFunction(()=>document.body.dataset.studio==='foam'&&document.querySelectorAll('.foam-instance').length===3);assert.equal(await p.locator('#foamStatus').textContent(),'Layout ready');
  if(w<768){await p.locator('[data-foam-panel=settings]').click();await p.locator('#foamDimensionSettings').evaluate(e=>e.open=true);}
  await input(p,'foamWidth',700);await input(p,'foamHeight',450);await input(p,'foamThickness',60);await input(p,'foamToolName','Torque wrench');await input(p,'foamDepth',18);await p.locator('#foamDepth').blur();

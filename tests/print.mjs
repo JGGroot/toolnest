@@ -10,7 +10,7 @@ for(const paper of ['a4','letter']){
   const dims=await page.locator('svg').evaluate(e=>({width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height}));assert.ok(dims.width>790&&dims.width<817);await page.close();
  }
 }
-const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});await context.addInitScript(()=>window.print=()=>{});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await page.locator('[data-panel="capture"]').tap();
+const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});await context.addInitScript(()=>window.print=()=>{});const page=await context.newPage();const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000/?sample');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await page.locator('[data-panel="capture"]').tap();
 await page.pdf({path:'tests/print-app-a4-phone.pdf',preferCSSPageSize:true});
 const [direct]=await Promise.all([page.waitForEvent('download'),page.locator('#downloadSheet').tap()]);assert.ok(direct.suggestedFilename().endsWith('.pdf'));await direct.saveAs('tests/print-download.pdf');
 await page.locator('#printBtn').tap();assert.match(await page.locator('#modalBody').textContent(),/A4 \(210 × 297 mm\)/);const [pdf]=await Promise.all([page.waitForEvent('download'),page.locator('#sheetDownloadPDF').tap()]);await pdf.saveAs('tests/print-modal-download.pdf');

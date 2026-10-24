@@ -4,7 +4,7 @@ const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless
 const errors=[];
 const sizes=[[320,568],[390,844],[430,932],[768,1024],[820,1180],[1024,768],[1180,820]];
 for(const [width,height] of sizes){
- const context=await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:true,deviceScaleFactor:1});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);
+ const context=await browser.newContext({viewport:{width,height},hasTouch:true,isMobile:true,deviceScaleFactor:1});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000/?sample');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);
  assert.equal(await page.evaluate(()=>document.documentElement.scrollWidth>innerWidth),false,`page overflow ${width}`);
  const small=await page.evaluate(()=>[...document.querySelectorAll('button')].filter(e=>e.getClientRects().length&&getComputedStyle(e).visibility!=='hidden').filter(e=>{const r=e.getBoundingClientRect();return r.width<43.9||r.height<43.9;}).map(e=>({id:e.id,width:e.getBoundingClientRect().width,height:e.getBoundingClientRect().height})));
  assert.deepEqual(small,[],`undersized controls ${width}: ${JSON.stringify(small)}`);
@@ -17,7 +17,7 @@ for(const [width,height] of sizes){
  await context.close();console.log(`${width}×${height}: layout, navigation, camera, controls, focus, zoom passed`);
 }
 // Real browser touch dispatch: pinch/pan over tools must preserve the cut geometry.
-const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await page.locator('#focusBtn').tap();
+const context=await browser.newContext({viewport:{width:390,height:844},hasTouch:true,isMobile:true});const page=await context.newPage();page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000/?sample');await page.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await page.locator('#focusBtn').tap();
 const session=await context.newCDPSession(page);
 async function touch(type,points){await session.send('Input.dispatchTouchEvent',{type,touchPoints:points.map((p,i)=>({x:p[0],y:p[1],id:i+1,radiusX:3,radiusY:3,force:1}))});}
 const area=await page.locator('#canvasArea').boundingBox(),cx=area.x+area.width/2,cy=area.y+area.height*.43;

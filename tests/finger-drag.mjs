@@ -7,7 +7,7 @@ const curve=p=>p.locator('.tool-path').first().getAttribute('d');
 const errors=[];
 try{for(const width of [1440,390]){
  const context=await browser.newContext({viewport:{width,height:1000},deviceScaleFactor:1.5,hasTouch:width===390,isMobile:width===390}),p=await context.newPage();p.on('pageerror',e=>errors.push(e.message));
- await p.goto(process.env.TOOLNEST_URL||'http://127.0.0.1:3000');await p.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await ready(p);
+ await p.goto(process.env.TOOLNEST_URL||'http://127.0.0.1:3000/?sample');await p.waitForFunction(()=>document.querySelectorAll('.tool-path').length===3);await ready(p);
  const project={...DEFAULT_SETTINGS,format:'toolnest-project',version:2,paper:'a4',name:'Finger live',tools:[{name:'Smooth grip',points:[[50,40],[70,40],[70,160],[50,160]]}],fingers:[{x:70,y:100,r:8,tool:0}]};
  await p.locator('#projectInput').setInputFiles({name:'finger.json',mimeType:'application/json',buffer:Buffer.from(JSON.stringify(project))});await p.locator('#traceStudioBtn').click();await ready(p);
  const original=await curve(p),finger=p.locator('[data-finger="0"]');

@@ -1,18 +1,17 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261024-projects1';
-import {createLiveCamera} from './camera-ui.js?v=20261024-projects1';
-import {createFoamStudio} from './foam-ui.js?v=20261024-projects1';
-import {createCloud} from './cloud.js?v=20261024-projects1';
-import {validateFoam} from './foam-model.js?v=20261024-projects1';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261024-projects1';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261024-projects1';
+import {prepareCaptureAsync} from './capture-client.js?v=20261024-tools1';
+import {createFoamStudio} from './foam-ui.js?v=20261024-tools1';
+import {createCloud} from './cloud.js?v=20261024-tools1';
+import {validateFoam} from './foam-model.js?v=20261024-tools1';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261024-tools1';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261024-tools1';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261024-projects1';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261024-projects1';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261024-tools1';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261024-tools1';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
-let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
+let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:false},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261024-projects1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261024-tools1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
@@ -212,7 +211,7 @@ $('fingerDiameter').oninput=()=>{const n=+$('fingerDiameter').value;if(!Number.i
 $('paper').onchange=()=>{const next=$('paper').value;if(state.tools.length){$('paper').value=state.paper;showModal('Change paper size','CALIBRATION',`<p>Changing to ${next.toUpperCase()} clears this workspace because marker positions and physical dimensions change. Save your current project first if you need it.</p><div class="modal-actions"><button id="confirmPaper" class="primary">Change paper & clear</button><button id="cancelPaper" class="secondary">Keep workspace</button></div>`);$('confirmPaper').onclick=()=>{clearProject(next);$('modal').close();};$('cancelPaper').onclick=()=>$('modal').close();}else{state.paper=next;render();}};
 function clearProject(paper=state.paper){captureEpoch++;imageReadRevision++;state={...DEFAULT_SETTINGS,paper,tools:[],fingers:[],selected:0,cal:null,demo:false};source=corrected=null;geometryTraceKey=null;initPreviewImage();sourceURL=correctedURL='';history=[];future=[];cutPaths=[];view='outline';activeNode=-1;insertPoint=false;pan={x:0,y:0};zoom=1;setMobilePanel('capture');applyZoom();syncInputs();setView('outline');}
 $('newBtn').onclick=()=>{if(!state.tools.length&&!foamStudio.hasTools()){foamStudio.clear();foamStudio.hide();return clearProject();}showModal('Start a new workspace','NEW PROJECT','<p>Clear the current photo outlines and foam layout? Saved library tools are kept.</p><div class="modal-actions"><button id="confirmNew" class="primary">Start new project</button><button id="saveBeforeNew" class="secondary">Save current project</button></div>');$('confirmNew').onclick=()=>{foamStudio.clear();foamStudio.hide();clearProject();$('modal').close();};$('saveBeforeNew').onclick=()=>$('saveBtn').click();};
-$('demoBtn').onclick=()=>{clearProject('a4');processImage(makeFixture(),true);};
+
 // Keep the browser's own Ctrl/Cmd+P command useful without paginating the app.
 window.addEventListener('beforeprint',()=>{
  let sheet=document.getElementById('calibrationFallbackSheet');if(!sheet){sheet=document.createElement('div');sheet.id='calibrationFallbackSheet';sheet.className='print-sheet';sheet.style.display='none';document.body.append(sheet);}sheet.innerHTML=sheetSVG();
@@ -284,7 +283,7 @@ function endOutlineSession(apply){
  syncInputs();applyZoom();render(false);
  foamStudio.show();if(rings)session.onDone(rings);
 }
-foamStudio=createFoamStudio({editOutline,toast,download,modal:showModal,capture:()=>setMobilePanel('capture'),captureFoam:()=>liveCamera.open({onFrame:image=>foamStudio.captureFoamImage(image)}),saveProject:()=>$('saveBtn').click(),openProject:()=>$('openBtn').click(),setStudio:mode=>{for(const [id,m] of [['libraryStudioBtn','library'],['traceStudioBtn','trace'],['foamStudioBtn','foam']])$(id).setAttribute('aria-pressed',String(m===mode));}});
+foamStudio=createFoamStudio({editOutline,toast,download,modal:showModal,capture:()=>setMobilePanel('capture'),saveProject:()=>$('saveBtn').click(),openProject:()=>$('openBtn').click(),setStudio:mode=>{for(const [id,m] of [['libraryStudioBtn','library'],['traceStudioBtn','trace'],['foamStudioBtn','foam']])$(id).setAttribute('aria-pressed',String(m===mode));}});
 // Optional cloud account. On a phone its two capture actions open the camera for tools (Trace) or a new foam.
 createCloud({toast,modal:showModal,foam:foamStudio,startToolPhoto:()=>{foamStudio.hide();setMobilePanel('capture');$('cameraInput').click();},startFoamPhoto:()=>foamStudio.newFoam()});
 $('traceStudioBtn').onclick=()=>foamStudio.hide();$('foamStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);else foamStudio.show();};$('outlineSessionDone').onclick=()=>endOutlineSession(true);$('outlineSessionCancel').onclick=()=>endOutlineSession(false);$('libraryStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);foamStudio.showLibrary();};
@@ -293,8 +292,8 @@ $('saveCaptureTool').onclick=()=>{const paths=captureProfile(state.selected);if(
 const savedTools=new Map();$('saveAllTools').onclick=()=>{const key=i=>imageReadRevision+':'+i,items=state.tools.map((t,i)=>({paths:captureProfile(i),name:t.name,id:savedTools.get(key(i))}));if(!items.some(i=>i.paths))return toast('Outlines are still updating. Try again in a moment.');const ids=foamStudio.saveTools(items);ids.forEach((id,i)=>{if(id)savedTools.set(key(i),id);});const n=ids.filter(Boolean).length;toast(`✓ Saved ${n} tool${n===1?'':'s'} to your library.`);};
 $('addAllToFoam').onclick=()=>{state.tools.forEach((t,i)=>{const paths=captureProfile(i);if(paths)foamStudio.addCaptured(paths,t.name);});};
 let restored=false;try{const draft=localStorage.getItem('toolnest.trace.v2');if(draft){loadProject(JSON.parse(draft),false);restored=true;}}catch{toast('Could not restore the last photo outlines. Open a project backup.');}
-syncInputs();render();if(!restored&&!foamStudio.hasTools())setTimeout(()=>processImage(makeFixture(),true),100);else if(foamStudio.hasTools())foamStudio.show();
+syncInputs();render();if(!restored&&new URLSearchParams(location.search).has('sample'))setTimeout(()=>processImage(makeFixture(),true),100);else if(foamStudio.hasTools())foamStudio.show();
 
-const liveCamera=createLiveCamera({settings:()=>({...Object.fromEntries(Object.keys(DEFAULT_SETTINGS).map(k=>[k,state[k]])),paper:state.paper}),useFrame:(image,isActive)=>processImage(image,false,{requireTools:true,isActive})});
-$('liveCameraBtn').onclick=()=>liveCamera.open();
+
+
 for(const button of document.querySelectorAll('[data-outline-preset]'))button.onclick=()=>{remember();const presets={detail:{smoothing:1,curveRadius:.35,maxDeviation:.15},balanced:{smoothing:2,curveRadius:.75,maxDeviation:.35},smooth:{smoothing:4,curveRadius:1.5,maxDeviation:.65}};Object.assign(state,{smoothingMode:'fair'},presets[button.dataset.outlinePreset]);syncInputs();render();};

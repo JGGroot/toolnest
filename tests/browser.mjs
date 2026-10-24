@@ -1,6 +1,6 @@
 import {chromium} from '/opt/codex/cua_node/lib/node_modules/playwright/index.mjs';
 const browser=await chromium.launch({executablePath:'/usr/bin/chromium',headless:true,args:['--no-sandbox']});
-const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000');await page.waitForFunction(()=>document.querySelectorAll('.tool-item').length===3);await page.screenshot({path:'/workspace/sites/toolnest/tests/desktop.png',fullPage:true});
+const page=await browser.newPage({viewport:{width:1440,height:1100}});const errors=[];page.on('pageerror',e=>errors.push(e.message));await page.goto('http://127.0.0.1:3000/?sample');await page.waitForFunction(()=>document.querySelectorAll('.tool-item').length===3);await page.screenshot({path:'/workspace/sites/toolnest/tests/desktop.png',fullPage:true});
 console.log('Initial demo:',await page.locator('#footerStatus').textContent());
 await page.locator('#testBtn').click();await page.locator('#runTests').click();await page.waitForFunction(()=>document.getElementById('labStatus').textContent.includes('of 9 tests passed'),{timeout:30000});console.log('Lab:',await page.locator('#labStatus').textContent());await page.screenshot({path:'/workspace/sites/toolnest/tests/lab.png',fullPage:true});await page.locator('#closeModal').click();
 // Place a finger cutout at the wrench edge and verify the merged geometry changes.

@@ -68,7 +68,7 @@ body.canvas-focus .mobile-nav{display:none!important}
  .left-panel>.muted{display:block;font-size:13px;line-height:1.7}
  .left-panel .divider{display:block;margin:20px 0}
  .left-panel .tool-list{display:flex}
- .left-panel #demoBtn{display:block}
+
  .left-bottom{display:flex;padding-top:24px}.left-bottom p{font-size:12px}.left-bottom strong{font-size:13px}
  .left-panel .upload-card{grid-row:auto;margin:0 0 12px;min-height:140px;padding:20px}
  .upload-card strong{font-size:16px}.upload-card>span:not(.upload-icon){font-size:13px}.upload-card small{font-size:11px}
@@ -247,7 +247,7 @@ body.canvas-focus .mobile-nav{display:none!important}
 body.outline-session .outline-session-bar{display:flex;align-items:center;gap:10px;position:fixed;left:50%;top:max(10px,env(safe-area-inset-top));transform:translateX(-50%);z-index:40;padding:10px 12px;background:#313c2c;color:#f4f7ef;border-radius:10px;box-shadow:0 4px 20px #0003;max-width:calc(100% - 24px);flex-wrap:wrap}
 .outline-session-bar span{flex:1 1 220px;font-size:13px}.outline-session-bar small{display:block;opacity:.75;font-size:11px;margin-top:2px}
 .outline-session-bar button{min-height:40px}
-body.outline-session #uploadBtn,body.outline-session #liveCameraBtn,body.outline-session .capture-actions,body.outline-session #addCaptureTool,body.outline-session #saveCaptureTool,body.outline-session #addAllToFoam{display:none!important}
+body.outline-session #uploadBtn,body.outline-session .capture-actions,body.outline-session #addCaptureTool,body.outline-session #saveCaptureTool,body.outline-session #addAllToFoam{display:none!important}
 .outline-session-bar .secondary{background:transparent;color:#f4f7ef;border:1px solid #f4f7ef99}
 
 .build-tag{font-size:10px;color:#9aa48c;margin-left:6px;align-self:center}
