@@ -1,4 +1,4 @@
-import {bestMask} from './segment-model.js?v=20261025-hdr3';
+import {bestMask} from './segment-model.js?v=20261025-shd1';
 const MP='https://cdn.jsdelivr.net/npm/@mediapipe/tasks-vision@0.10.21',HF='https://cdn.jsdelivr.net/npm/@huggingface/transformers@3.5.0/dist/transformers.min.js';
 const MODEL='Xenova/slimsam-77-uniform',REVISION='5850ab45f587c112167512ffef949107115e26a0';
 async function download(url,progress){const r=await fetch(url,{credentials:'omit'});if(!r.ok)throw Error(`Model download failed (${r.status}).`);const total=+r.headers.get('content-length')||0,reader=r.body.getReader(),chunks=[];let loaded=0;for(;;){const {value,done}=await reader.read();if(done)break;chunks.push(value);loaded+=value.length;progress({phase:'download',loaded,total});}const out=new Uint8Array(loaded);let n=0;for(const chunk of chunks){out.set(chunk,n);n+=chunk.length;}return out;}

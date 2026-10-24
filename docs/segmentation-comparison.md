@@ -37,6 +37,29 @@ Failures were whole-sheet answers (the paper is the most confident object in vie
 
 \* first tap after loading.
 
+## Model edge with shadow trim (v31)
+
+On the live site the traced line hopped in and out of the region the model found, most visibly on the adjustable wrench. It also sometimes included the tool's shadow. Both came from the post-processing, which was measured on the same pairs (Quick, one tap):
+
+| Tool | Snapped (v30) IoU / max · extra / missed mm² | Model edge, no trim IoU / max · extra / missed | Model edge + shadow trim + smoothing (v31) IoU / max · extra / missed |
+| --- | ---: | ---: | ---: |
+| Adjustable wrench | 0.941 / 3.3 · 135 / 165 | 0.960 / 1.9 · 126 / 73 | **0.969 / 1.3** · 48 / 104 |
+| Ratchet | 0.855 / 4.4 · 178 / 27 | 0.837 / 3.4 · 233 / 7 | 0.847 / **2.7** · 212 / 11 |
+| Multitool | 0.976 / 1.9 · 14 / 65 | 0.970 / 2.4 · 73 / 26 | **0.983 / 1.1** · 21 / 36 |
+| Pipe wrench | 0.971 / 1.8 · 145 / 106 | 0.959 / 3.2 · 321 / 43 | 0.968 / 2.2 · 190 / 91 |
+| Pliers | 0.962 / 2.1 · 149 / 127 | 0.971 / 1.6 · 170 / 37 | **0.976 / 1.4** · 130 / 43 |
+| Punch | 0.960 / 1.8 · 57 / 113 | 0.965 / 0.9 · 125 / 28 | **0.973 / 0.9** · 82 / 35 |
+| Average IoU | 0.944 | 0.944 | **0.953** |
+
+*Extra* is area outside the reference (mostly shadow); *missed* is reference area left out.
+
+- The snapper's average matched the raw model edge, but it moved the line both ways: it cut into the tool (missed area) and hopped onto shadow and reflections. Its worst errors were up to 4.4 mm.
+- The raw model edge errs only outward, by including shadow.
+- The shadow trim removes most of that shadow, and smoothing irons out the mask's staircase. Against the snapper, four of six tools improve on both overlap and worst error. The two dark tools with wide, soft shadows (ratchet and pipe wrench) score slightly lower on overlap; the ratchet's worst error still improves, while the pipe wrench's grows from 1.8 to 2.2 mm.
+- The trim's thresholds (depth 2.5 mm, brightness 50–93% of paper, colour-balance difference 0.035, neighbour step 15% of paper) were tuned on these six tools. That is a small set, so the thresholds may need revisiting with more photos. Peeling paper-bright pixels too, or peeling deeper, ate into chrome that reflects the sheet.
+- Precise improves on average too (0.934 → 0.936; ratchet 0.826 → 0.840, max 4.2 → 3.0 mm), but its masks tend to fall short of the tool rather than include shadow, so the trim matters less for it.
+- Remaining shadow is in soft, wide penumbras beside dark tools (pipe wrench, ratchet). Even, diffuse light when photographing removes it at the source.
+
 ## Findings
 
 - **Quick is the practical choice.** From one tap it matches or beats Smart edges on every tool, most clearly where Smart edges struggles (chrome multitool: max 5.0 → 1.9 mm; punch: 9.3 → 1.8 mm), in a fraction of a second.

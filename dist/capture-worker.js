@@ -1,2 +1,2 @@
-import {prepareCapture} from './capture-model.js?v=20261025-hdr3';
+import {prepareCapture} from './capture-model.js?v=20261025-shd1';
 self.onmessage=e=>{const {id,image,settings}=e.data;try{const result=prepareCapture(image,settings);self.postMessage({id,result},[result.rect.data.buffer]);}catch(error){self.postMessage({id,error:error.message});}};
