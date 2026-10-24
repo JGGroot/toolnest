@@ -66,3 +66,4 @@ body[data-studio=library]>.app-layout,body[data-studio=library]>.site-footer,bod
 .topbar{min-width:0}.top-actions{flex:none}.cloud-btn[data-sync=saving]::after{background:#d4a72c}.cloud-btn[data-sync=error]::after{background:#cf2f22}
 @media(max-width:767px){.sync-pill,#newBtn{display:none!important}.header-mode{min-width:0}.cloud-btn[data-state=on]::after{right:5px;top:5px;width:9px;height:9px}}
 @media(max-width:400px){.brand{font-size:0!important;gap:0}.brand .brand-icon{font-size:29px}.header-mode button{padding:5px 7px;font-size:12px}}
+.pocket-preview{display:block;width:100%;max-height:46vh;background:#2c3530;border-radius:8px;margin:4px 0}.pocket-preview path{fill:#ff5a3c55;stroke:#ff5a3c;stroke-width:1.5;vector-effect:non-scaling-stroke}
