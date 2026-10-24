@@ -1,6 +1,6 @@
 # GitHub Pages
 
-Toolnest is a static, browser-local app. GitHub Pages serves `dist/` over HTTPS; no ChatGPT account, backend, API keys, npm dependencies or build step is needed.
+Toolnest is a static, browser-local app. GitHub Pages serves `dist/` over HTTPS; no backend, secret keys, npm dependencies or build step is needed. The optional cloud account uses Supabase with a public (publishable) key in `dist/cloud.js`.
 
 ## Deployment
 
@@ -19,7 +19,7 @@ Repository privacy and website privacy are separate. Ordinary GitHub Pages sites
 
 Browser storage belongs to a website origin. On the old Toolnest address, save each project; check **Include foam photo in project backup** if you want that image to move too. Export the tool library separately. On the Pages address, open the downloaded project and import the library. Confirm dimensions and depths before exporting. Trace-source photographs are not included and must be selected again to retrace.
 
-Projects, photos and library data remain local to each browser/device. This deployment does not create shared team storage. Share a downloaded project/library backup to move a design between people or machines. Keep backups outside the source repository.
+Projects, photos and library data remain local to each browser/device unless you sign in to the optional cloud account (see README). Its Supabase schema and `pair-redeem` edge function are in `supabase/`; the static Pages deployment itself needs no secrets. Share a downloaded project/library backup to move a design between people or machines. Keep backups outside the source repository.
 
 ## Development
 

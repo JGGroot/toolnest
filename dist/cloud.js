@@ -1,0 +1,87 @@
+// Optional cloud account (Supabase): sign-in, synced tool library and drawers, QR phone pairing
+// and phone-to-desktop photos. Signed out, nothing leaves the browser: the Supabase client is
+// only loaded once someone signs in, has a saved session or opens a pairing link.
+import qrcode from './vendor/qrcode.mjs';
+export const SUPABASE_URL='https://ddqyjscfbvtrqmrnehhn.supabase.co',SUPABASE_KEY='sb_publishable_NW3qw6msS3_CfC0Ox0mzow_FN1jAtNx';
+const SESSION_KEY='sb-ddqyjscfbvtrqmrnehhn-auth-token',BUCKET='toolnest',$=id=>document.getElementById(id);
+const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const stable=v=>JSON.stringify(v);
+const base64url=bytes=>btoa(String.fromCharCode(...bytes)).replace(/\+/g,'-').replace(/\//g,'_').replace(/=+$/,'');
+const sha256=async text=>[...new Uint8Array(await crypto.subtle.digest('SHA-256',new TextEncoder().encode(text)))].map(b=>b.toString(16).padStart(2,'0')).join('');
+const appURL=()=>location.origin+location.pathname;
+// Phones send photos; desktops (fine pointer) receive them unless told otherwise.
+const receives=()=>localStorage.getItem('toolnest.cloud.receive')!==null?localStorage.getItem('toolnest.cloud.receive')==='1':matchMedia('(pointer:fine)').matches;
+
+export function createCloud({toast,modal,foam,openToolPhoto,openFoamPhoto}){
+ let clientPromise=null,client=null,user=null,channel=null,libraryTimer=0,drawerTimer=0,applying=false,status='';
+ const button=document.createElement('button');button.id='cloudBtn';button.className='icon-btn cloud-btn';button.title='Account and cloud sync';button.setAttribute('aria-label','Account and cloud sync');button.textContent='☁';document.querySelector('.top-actions')?.prepend(button);
+ function setStatus(text){status=text;button.dataset.state=user?'on':'off';button.title=user?`Signed in as ${user.email}${text?' · '+text:''}`:'Sign in to sync across devices';const line=$('cloudStatus');if(line)line.textContent=text;}
+ function load(){if(!clientPromise)clientPromise=new Promise((resolve,reject)=>{const make=()=>{client=globalThis.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});client.auth.onAuthStateChange((event,session)=>setTimeout(()=>authChanged(session),0));resolve(client);};if(globalThis.supabase?.createClient)return make();const s=document.createElement('script');s.src=new URL('./vendor/supabase.js?v=2.117.3',import.meta.url).href;s.onload=make;s.onerror=()=>{clientPromise=null;reject(Error('Cloud sign-in could not load. Check your connection.'));};document.head.append(s);});return clientPromise;}
+ async function authChanged(session){const next=session?.user||null;if(/[?&]code=/.test(location.search))history.replaceState(null,'',appURL()+location.hash);if(next?.id===user?.id)return;user=next;setStatus('');if(channel){client.removeChannel(channel);channel=null;}if(!user){if($('cloudBody'))render();return;}
+  setStatus('Syncing…');try{await syncLibrary();await pushDrawer();setStatus('Synced');}catch(e){setStatus('Sync paused: '+e.message);}listen();if(receives())pendingCaptures();if($('cloudBody'))render();}
+
+ // ---- Tool library: rows keyed by tool id. A per-account snapshot of what was last synced
+ // tells local edits apart from remote ones; when both changed, the local copy wins.
+ const snapKey=()=>`toolnest.cloud.library.${user.id}`;
+ const readSnap=()=>{try{return JSON.parse(localStorage.getItem(snapKey())||'{}');}catch{return {};}};
+ async function syncLibrary(){const {data:rows,error}=await client.from('library_tools').select('id,data,deleted');if(error)throw error;const snap=readSnap(),local=new Map(foam.getLibrary().map(t=>[t.id,t])),push=[],next=new Map(local);
+  for(const row of rows){const mine=local.get(row.id),cloud=row.deleted?null:stable(row.data),changedHere=mine?stable(mine)!==snap[row.id]:row.id in snap;
+   if(changedHere){if(mine)push.push(mine);else if(cloud)push.push({id:row.id,deleted:true});}else if(cloud)next.set(row.id,row.data);else next.delete(row.id);}
+  const known=new Set(rows.map(r=>r.id));for(const t of local.values())if(!known.has(t.id))push.push(t);
+  const merged=[...next.values()].slice(0,200);if(stable([...local.values()])!==stable(merged)){applying=true;try{foam.setLibrary(merged);}finally{applying=false;}}
+  await upsertLibrary(push);const fresh={};for(const t of merged)fresh[t.id]=stable(t);localStorage.setItem(snapKey(),JSON.stringify(fresh));}
+ async function upsertLibrary(items){if(!items.length)return;const {error}=await client.from('library_tools').upsert(items.map(t=>t.deleted?{id:t.id,name:'Deleted',data:{},deleted:true}:{id:t.id,name:t.name,data:t,deleted:false}),{onConflict:'user_id,id'});if(error)throw error;}
+ async function pushLibrary(){const snap=readSnap(),now=foam.getLibrary(),items=now.filter(t=>stable(t)!==snap[t.id]),ids=new Set(now.map(t=>t.id));for(const id of Object.keys(snap))if(!ids.has(id))items.push({id,deleted:true});await upsertLibrary(items);const fresh={};for(const t of now)fresh[t.id]=stable(t);localStorage.setItem(snapKey(),JSON.stringify(fresh));}
+ foam.onLibraryChange(()=>{if(!user||applying)return;clearTimeout(libraryTimer);libraryTimer=setTimeout(()=>pushLibrary().then(()=>setStatus('Synced')).catch(e=>setStatus('Library sync failed: '+e.message)),1500);});
+
+ // ---- Drawers: the open drawer is saved under its id a few seconds after each change. The
+ // rectified foam photo goes to storage once, as <user>/foam/<photo id>.
+ const uploadedKey=()=>`toolnest.cloud.photos.${user.id}`;
+ async function pushDrawer(){const d=foam.getRaw();if(!d.tools.length&&!d.foam.photo&&!d.foam.keepouts?.length)return;let photoPath=null;const photo=d.foam.photo;
+  if(photo){photoPath=`${user.id}/foam/${photo.id}`;const done=new Set(JSON.parse(localStorage.getItem(uploadedKey())||'[]'));if(!done.has(photo.id)){const blob=await foam.getPhoto(photo.id);if(blob){const {error}=await client.storage.from(BUCKET).upload(photoPath,blob,{upsert:true,contentType:blob.type||'image/jpeg'});if(error)throw error;done.add(photo.id);localStorage.setItem(uploadedKey(),JSON.stringify([...done].slice(-200)));}else photoPath=null;}}
+  const {error}=await client.from('drawers').upsert({id:d.id,name:d.name,data:d,photo_path:photoPath,deleted:false},{onConflict:'user_id,id'});if(error)throw error;}
+ foam.onChange(()=>{if(!user)return;clearTimeout(drawerTimer);drawerTimer=setTimeout(()=>{setStatus('Saving…');pushDrawer().then(()=>setStatus('Synced')).catch(e=>setStatus('Drawer sync failed: '+e.message));},3000);});
+ async function openDrawer(id){const {data:row,error}=await client.from('drawers').select('data,photo_path').eq('id',id).single();if(error)throw error;foam.load(row.data);if(row.photo_path&&row.data.foam.photo){const {data:blob}=await client.storage.from(BUCKET).download(row.photo_path);if(blob)await foam.putPhoto(row.data.foam.photo.id,blob);}foam.show();toast(`Opened ${row.data.name}.`);}
+
+ // ---- Phone photos: the phone uploads to <user>/captures/ and adds a row; the desktop hears the
+ // insert, claims the row (first desktop wins), opens the photo and deletes the upload.
+ async function sendPhoto(kind,file){const blob=await shrink(file,3000),id=crypto.randomUUID(),path=`${user.id}/captures/${id}.jpg`;const up=await client.storage.from(BUCKET).upload(path,blob,{contentType:'image/jpeg'});if(up.error)throw up.error;const {error}=await client.from('captures').insert({id,kind,path});if(error)throw error;}
+ function listen(){channel=client.channel('toolnest-'+user.id).on('postgres_changes',{event:'INSERT',schema:'public',table:'captures',filter:`user_id=eq.${user.id}`},({new:row})=>{if(receives())receive(row);}).subscribe();}
+ async function pendingCaptures(){const since=new Date(Date.now()-6*3600e3).toISOString(),{data}=await client.from('captures').select('*').is('consumed_at',null).gt('created_at',since).order('created_at');for(const row of data||[])await receive(row);}
+ async function receive(row){const {data:claimed}=await client.from('captures').update({consumed_at:new Date().toISOString()}).eq('id',row.id).is('consumed_at',null).select('id');if(!claimed?.length)return;const {data:blob,error}=await client.storage.from(BUCKET).download(row.path);if(error||!blob)return toast('A phone photo arrived but could not be downloaded.');client.storage.from(BUCKET).remove([row.path]);
+  if(row.kind==='foam'){const bitmap=await createImageBitmap(blob),c=document.createElement('canvas');c.width=bitmap.width;c.height=bitmap.height;const ctx=c.getContext('2d');ctx.drawImage(bitmap,0,0);bitmap.close?.();openFoamPhoto(ctx.getImageData(0,0,c.width,c.height));toast('Foam photo from your phone. Tap its four corners to align it.');}
+  else{openToolPhoto(new File([blob],'phone-photo.jpg',{type:'image/jpeg'}));toast('Tool photo from your phone is being traced.');}}
+ async function shrink(file,max){const bitmap=await createImageBitmap(file),scale=Math.min(1,max/Math.max(bitmap.width,bitmap.height)),c=document.createElement('canvas');c.width=Math.round(bitmap.width*scale);c.height=Math.round(bitmap.height*scale);c.getContext('2d').drawImage(bitmap,0,0,c.width,c.height);bitmap.close?.();return await new Promise((resolve,reject)=>c.toBlob(b=>b?resolve(b):reject(Error('Could not encode the photo.')),'image/jpeg',.9));}
+
+ // ---- QR pairing: a random 256-bit code is shown once in the QR; only its hash is stored. The
+ // phone sends it to the pair-redeem function, which signs the phone in to this account.
+ async function showPairing(){const code=base64url(crypto.getRandomValues(new Uint8Array(32))),{data:row,error}=await client.from('pairings').insert({code_hash:await sha256(code)}).select('id,expires_at').single();if(error)return toast('Could not create a pairing code: '+error.message);
+  const link=`${appURL()}#pair=${row.id}.${code}`,qr=qrcode(0,'M');qr.addData(link);qr.make();
+  modal('Pair a phone','SCAN WITH YOUR PHONE CAMERA',`<div class="cloud-qr">${qr.createSvgTag({cellSize:5,margin:3,scalable:true})}</div><p class="cloud-note">Opens Toolnest on the phone, signed in to <b>${escape(user.email)}</b>. Photos it takes then appear here. The code works once and expires in <b id="pairCountdown">5:00</b>.</p><p id="pairState" class="cloud-note"></p>`);
+  const end=new Date(row.expires_at).getTime(),tick=setInterval(()=>{const left=Math.max(0,end-Date.now()),el=$('pairCountdown');if(!el)return clearInterval(tick);el.textContent=`${Math.floor(left/60000)}:${String(Math.floor(left/1000)%60).padStart(2,'0')}`;if(!left){clearInterval(tick);$('pairState').textContent='Expired. Close and pair again.';}},1000);
+  const watch=client.channel('pair-'+row.id).on('postgres_changes',{event:'UPDATE',schema:'public',table:'pairings',filter:`id=eq.${row.id}`},({new:p})=>{if(p.used_at&&$('pairState')){$('pairState').textContent='✓ Phone signed in. Take a photo on it to send it here.';clearInterval(tick);client.removeChannel(watch);}}).subscribe();}
+ async function redeemPairing(token){const [id,code]=token.split('.');history.replaceState(null,'',appURL());try{await load();const {data,error}=await client.functions.invoke('pair-redeem',{body:{id,code}});if(error){let message='This pairing code has expired or was already used.';try{message=(await error.context.json()).error||message;}catch{}throw Error(message);}const {error:otpError}=await client.auth.verifyOtp({type:'magiclink',token_hash:data.token_hash});if(otpError)throw otpError;open('phone');}catch(e){toast(e.message);}}
+
+ // ---- Account dialog
+ function open(view){modal('Account','TOOLNEST CLOUD','<div id="cloudBody"></div>');render(view);}
+ function render(view){const body=$('cloudBody');if(!body)return;
+  if(!user){body.innerHTML=`<p class="cloud-note">Sign in to keep your tool library and drawers on every device, and to send photos from your phone straight to this screen. Without an account everything stays in this browser.</p><label class="foam-field">Email<input id="cloudEmail" type="email" autocomplete="email" inputmode="email" placeholder="you@example.com"></label><button id="cloudSend" class="primary full">Email me a sign-in link</button><p id="cloudStatus" class="cloud-note"></p>`;
+   $('cloudSend').onclick=async()=>{const email=$('cloudEmail').value.trim();if(!/^\S+@\S+\.\S+$/.test(email))return toast('Enter your email address.');$('cloudSend').disabled=true;try{await load();const {error}=await client.auth.signInWithOtp({email,options:{emailRedirectTo:appURL()}});if(error)throw error;$('cloudStatus').textContent=`Check ${email} for a sign-in link. It signs in whichever browser opens it.`;}catch(e){$('cloudStatus').textContent=e.message;$('cloudSend').disabled=false;}};return;}
+  const phone=view==='phone'||!matchMedia('(pointer:fine)').matches;
+  body.innerHTML=`<p class="cloud-note">Signed in as <b>${escape(user.email)}</b> · <span id="cloudStatus">${escape(status)}</span></p>${phone?`<div class="cloud-send"><label class="primary full">📷 Tool photo → desktop<input type="file" accept="image/*" capture="environment" data-kind="tool" hidden></label><label class="secondary full">📷 Foam photo → desktop<input type="file" accept="image/*" capture="environment" data-kind="foam" hidden></label><p class="cloud-note">Tool photos need the printed sheet with all four corner markers in view.</p></div>`:'<button id="cloudPair" class="primary full">Pair a phone (QR code)</button>'}<h3 class="cloud-h">DRAWERS</h3><div id="cloudDrawers" class="cloud-note">Loading…</div><label class="cloud-check"><input id="cloudReceive" type="checkbox"${receives()?' checked':''}> Open photos sent from my phone on this device</label><button id="cloudSignOut" class="text-btn full">Sign out</button>`;
+  for(const input of body.querySelectorAll('input[data-kind]'))input.onchange=async()=>{const file=input.files[0];if(!file)return;const label=input.parentElement;label.classList.add('busy');try{await sendPhoto(input.dataset.kind,file);toast('Sent. It will open on your desktop.');}catch(e){toast('Could not send: '+e.message);}finally{label.classList.remove('busy');input.value='';}};
+  if($('cloudPair'))$('cloudPair').onclick=showPairing;
+  $('cloudReceive').onchange=()=>{localStorage.setItem('toolnest.cloud.receive',$('cloudReceive').checked?'1':'0');if(receives())pendingCaptures();};
+  $('cloudSignOut').onclick=async()=>{await client.auth.signOut();toast('Signed out. Your library and drawers stay on this device.');};
+  listDrawers();}
+ async function listDrawers(){const box=$('cloudDrawers');const {data,error}=await client.from('drawers').select('id,name,updated_at,data->tools').eq('deleted',false).order('updated_at',{ascending:false});if(!$('cloudDrawers'))return;if(error){box.textContent='Could not load drawers: '+error.message;return;}if(!data.length){box.textContent='No drawers saved yet. The open drawer saves automatically once it has tools.';return;}
+  const current=foam.getRaw().id;box.replaceChildren(...data.map(d=>{const row=document.createElement('div');row.className='cloud-drawer';row.innerHTML=`<div><strong>${escape(d.name)}</strong><small>${(d.tools||[]).length} tools · ${new Date(d.updated_at).toLocaleString()}${d.id===current?' · open':''}</small></div>`;const openBtn=document.createElement('button');openBtn.className='secondary';openBtn.textContent='Open';openBtn.disabled=d.id===current;openBtn.onclick=async()=>{if(foam.hasTools()&&!confirm('Open this drawer? The drawer on screen is already saved to your account.'))return;try{await openDrawer(d.id);$('modal').close();}catch(e){toast(e.message);}};const del=document.createElement('button');del.className='text-btn danger';del.textContent='×';del.setAttribute('aria-label','Delete '+d.name);del.onclick=async()=>{if(!confirm(`Delete "${d.name}" from your account? Copies on this device are kept.`))return;await client.from('drawers').update({deleted:true}).eq('id',d.id);listDrawers();};row.append(openBtn,del);return row;}));}
+
+ button.onclick=async()=>{open();if(!client&&localStorage.getItem(SESSION_KEY))await load().catch(e=>toast(e.message));};
+ window.addEventListener('focus',()=>{if(user)syncLibrary().catch(()=>{});});
+ // Start the client only when there is a session, an email sign-in callback or a pairing link.
+ const pair=/^#pair=([0-9a-f-]{36}\.[A-Za-z0-9_-]{20,100})$/.exec(location.hash);
+ if(pair)redeemPairing(pair[1]);else if(localStorage.getItem(SESSION_KEY)||/[?&]code=/.test(location.search)||/access_token=|error_description=/.test(location.hash))load().catch(e=>toast(e.message));
+ setStatus('');
+ return {open};
+}
