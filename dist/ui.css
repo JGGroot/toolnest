@@ -41,6 +41,30 @@
 .foam-photo-controls>.secondary{margin-bottom:12px}
 .foam-side h3{letter-spacing:0;text-transform:none}
 .tool-menu summary:focus-visible,.ui-disclosure summary:focus-visible{outline:2px solid #c7693d;outline-offset:2px;border-radius:4px}
+/* Workspaces use the viewport; inspectors scroll independently. */
+body{height:100dvh;display:flex;flex-direction:column;overflow:hidden}
+.topbar{flex-shrink:0}
+body .app-layout{flex:1;width:100%;max-width:none;margin:0;min-height:0;border:0;border-radius:0;overflow:hidden;align-items:stretch}
+.app-layout>.workspace{position:relative;top:auto;height:100%;min-height:0}
+.workspace .canvas-area{flex:1;height:auto;min-height:0}
+.workspace .canvas-top,.workspace .canvas-footer,.workspace .point-actions{flex-shrink:0}
+.app-layout>.left-panel,.app-layout>.right-panel{height:100%;min-height:0;max-height:100%;overflow-y:auto;scrollbar-width:thin}
+.canvas-footer #sheetSize{margin-left:auto}
+body #foamStudio{flex:1;width:100%;height:auto;min-height:0;margin:0;border:0;border-radius:0}
+#foamStudio .foam-side{max-height:100%;min-height:0}
+#foamStudio .foam-center{min-height:0}
+#foamStudio .foam-stage{min-height:0}
+body #libraryStudio{flex:1;min-height:0;overflow:auto}
+@media(max-width:1280px){
+ body:not([data-mobile-panel=capture]) .app-layout{height:auto;min-height:0}
+ body[data-mobile-panel=capture] .app-layout{overflow-y:auto}
+ body[data-mobile-panel=capture] .app-layout>.left-panel{height:auto;min-height:100%;max-width:none;max-height:none}
+}
+@media(max-width:767px){
+ body[data-mobile-panel=refine]:not(.canvas-focus) .app-layout{height:auto;min-height:0}
+ body[data-mobile-panel=refine] .app-layout>.workspace{height:34%;min-height:140px}
+ body[data-mobile-panel=refine] .app-layout>.right-panel{height:auto;min-height:0}
+}
 @media(max-width:767px){
  .foam-toolbar{padding:4px 8px;gap:4px}
  .tool-menu>summary{min-height:44px;padding:0 10px}

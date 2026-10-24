@@ -11,6 +11,12 @@ try{
   page.on('pageerror',e=>errors.push(e.message));
   await page.goto(url+'?sample');
   await page.waitForFunction(()=>document.querySelectorAll('.tool-item').length===3);
+  assert.equal(await page.locator('#fingerMode,#addFinger,#fingerDiameter').count(),0);
+  assert.equal(await page.locator('#footerStatus').isVisible(),false);
+  const workspace=await page.locator('.app-layout').boundingBox();
+  assert.equal(workspace.x,0);
+  assert.equal(workspace.width,width);
+  assert.ok(Math.abs(workspace.y+workspace.height-(width<=1280?932:1000))<2);
   assert.equal(await page.locator('#advanced').getAttribute('open'),null);
   if(await page.locator('[data-panel=refine]').isVisible())await page.locator('[data-panel=refine]').click();
   await page.locator('[data-outline-preset=balanced]').click();
