@@ -116,7 +116,7 @@ Shift- or Ctrl-click (or turn on **Multi** on a touch screen) adds or removes it
 
 ## Optional cloud account, phone pairing and sync
 
-The ☁ button in the header signs in with an emailed link (Supabase Auth). The link carries the session, so it signs in whichever browser opens it. Signed out, Toolnest makes no network requests and the Supabase client (vendored in `dist/vendor/supabase.js`) is not loaded.
+The ☁ button in the header signs in with Google, with email and password (new accounts confirm their email first; Forgot password sends a reset link), or with an emailed sign-in link (Supabase Auth). Emailed links carry the session, so they sign in whichever browser opens them. Google sign-in needs a Google Cloud OAuth client added under Authentication → Sign In / Providers → Google; until then the button says it is not switched on. Signed out, Toolnest makes no network requests and the Supabase client (vendored in `dist/vendor/supabase.js`) is not loaded.
 
 Signed in, the tool library syncs both ways by tool id. A per-account snapshot of the last sync tells local edits from remote ones, and when both changed the local copy wins. The open drawer saves to the account three seconds after each change, under a stable drawer id, with its rectified foam photo uploaded once to private storage; the account dialog lists saved drawers to open or delete. Two devices editing one drawer resolve as last save wins.
 

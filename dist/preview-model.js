@@ -1,4 +1,4 @@
-import {extract,makeCutPaths,bounds} from './vision.js?v=20261024-cloud1';
+import {extract,makeCutPaths,bounds} from './vision.js?v=20261024-cloud2';
 export const DEFAULT_SETTINGS={clearance:-1,smoothing:1,smoothingMode:'fair',curveRadius:.75,maxDeviation:.35,simplification:.18,threshold:160,brightnessThreshold:160,traceMethod:'edges',weakRatio:.4,gapMm:1,minToolArea:20};
 export function traceKey(s){return JSON.stringify([s.paper,s.traceMethod,s.traceMethod==='dark'?s.brightnessThreshold:s.threshold,s.weakRatio,s.gapMm,s.minToolArea]);}
 export function traceOptions(s){return {weakRatio:s.weakRatio,gapMm:s.gapMm};}

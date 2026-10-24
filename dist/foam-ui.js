@@ -1,12 +1,12 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {createStockPhoto} from './stock-photo-ui.js?v=20261024-cloud1';
-import {referenceCheck} from './stock-photo-model.js?v=20261024-cloud1';
+import {createStockPhoto} from './stock-photo-ui.js?v=20261024-cloud2';
+import {referenceCheck} from './stock-photo-model.js?v=20261024-cloud2';
 import {storePhoto,loadPhoto,blobDataURL,dataURLBlob} from './media-store.js';
-import {hasCrossings} from './outline.js?v=20261024-cloud1';
-import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261024-cloud1';
+import {hasCrossings} from './outline.js?v=20261024-cloud2';
+import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261024-cloud2';
 import clip from './vendor/polygon-clipping.js';
-import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from './foam-align.js?v=20261024-cloud1';
-import {SKETCH_TOOLS,sketchStep,sketchFields,placedRing,sketchedTool,parseLength,splinePoints,fromSpec,specRing,reshapeTool,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow} from './foam-shapes.js?v=20261024-cloud1';
+import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from './foam-align.js?v=20261024-cloud2';
+import {SKETCH_TOOLS,sketchStep,sketchFields,placedRing,sketchedTool,parseLength,splinePoints,fromSpec,specRing,reshapeTool,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow} from './foam-shapes.js?v=20261024-cloud2';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg',KEY='toolnest.foam.v1',LIB='toolnest.library.v1';
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=d=>`<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -86,7 +86,7 @@ export function createFoamStudio(api){
   if(!data.tools.length&&!list.children.length)list.innerHTML='<div class="foam-empty">Add tools from a photo or your library.</div>';
  }
 
- async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js?v=20261024-cloud1');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
+ async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js?v=20261024-cloud2');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
  function schedule3D(){if(pending3d)return;pending3d=true;requestAnimationFrame(()=>{pending3d=false;update3D();});}
  function renderLayoutControls(){
   for(const id of picked)if(!data.tools.some(o=>o.id===id))picked.delete(id);
@@ -151,7 +151,7 @@ export function createFoamStudio(api){
  function pumpDragCheck(){
   if(!layoutQueued||layoutBusy||!drag?.changed||layoutWorkerFailed)return;
   if(!layoutWorker){try{
-   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261024-cloud1',import.meta.url),{type:'module'});
+   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261024-cloud2',import.meta.url),{type:'module'});
    layoutWorker.onmessage=({data:result})=>{layoutBusy=false;if(result.id===layoutRevision&&drag?.changed&&!result.error)showDragIssues(result.issues);pumpDragCheck();};
    layoutWorker.onerror=()=>{layoutWorker.terminate();layoutWorker=null;layoutBusy=false;layoutQueued=false;layoutWorkerFailed=true;};
   }catch{layoutWorkerFailed=true;return;}}
@@ -322,7 +322,7 @@ export function createFoamStudio(api){
  $('foamVerifyPhoto').onclick=()=>{measurePoints=[];drawZone=false;areaMode='measure';setView('layout');resetView();panel('layout');};
  function showReference(){const distance=Math.hypot(measurePoints[1][0]-measurePoints[0][0],measurePoints[1][1]-measurePoints[0][1]);api.modal('Check a measured reference','PHOTO SCALE',`<p>Selected distance: <strong>${distance.toFixed(2)} mm</strong>. Enter the physical length measured between those same points.</p><div class="foam-reference-fields"><label>Actual length · mm <input id="photoReferenceActual" type="number" min="0.1" max="3000" inputmode="decimal" step="0.1"></label><button id="photoReferenceSave" class="primary">Record check</button></div><div id="photoReferenceResult" class="foam-reference-preview"></div>`);const input=$('photoReferenceActual'),out=$('photoReferenceResult');function preview(){try{const result=referenceCheck(measurePoints,+input.value);out.textContent=`${result.passed?'Pass':'Outside check tolerance'} · ${result.error.toFixed(2)} mm difference · tolerance ${result.tolerance.toFixed(2)} mm`;}catch{out.textContent='Enter the measured reference length.';}}input.oninput=preview;$('photoReferenceSave').onclick=()=>{try{const result=referenceCheck(measurePoints,+input.value);if(!data.foam.photo)return;remember();data.foam.photo.verification=result;render();$('modal').close();}catch(e){api.toast(e.message);}};}
  $('foamSetupGuide').onclick=()=>api.download(camSetup(data,{alignmentFrame:$('foamAlignmentFrame').checked}),`${data.name.replace(/[^a-z0-9_-]/gi,'-')}-CAM-setup.txt`,'text/plain');
- async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js?v=20261024-cloud1'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
+ async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js?v=20261024-cloud2'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
  if(matchMedia('(max-width:767px)').matches)$('foamDimensionSettings').open=false;$('foamDimensionSettings').ontoggle=()=>{if(matchMedia('(max-width:767px)').matches){if($('foamDimensionSettings').open)resetView();else if(host.dataset.panel==='settings')fitSelected();}};
  render();return {show,hide,addCaptured,openLibrary,captureFoamImage:stockPhoto.openImage,getData:()=>{const output=clone(data),photo=output.foam.photo;if(photo&&$('foamIncludePhoto').checked&&photoAssets.get(photo.id)?.dataURL)photo.image=photoAssets.get(photo.id).dataURL;return output;},load:incoming=>{const valid=validateFoam(incoming);discardDrag(false);photoChangeVersion++;data=valid;data.id||=uid();if(data.foam.photo?.image){const photo=data.foam.photo,url=photo.image;delete photo.image;cachePhoto(photo.id,dataURLBlob(url));}selected=data.tools.length?0:-1;picked.clear();nodeEdit=null;undo=[];redo=[];viewBox=null;render();},clear:()=>{discardDrag(false);photoChangeVersion++;data={id:uid(),name:'Drawer 1',foam:{...DEFAULT_FOAM},tools:[]};selected=-1;picked.clear();nodeEdit=null;undo=[];redo=[];viewBox=null;render();},hasTools:()=>!!data.tools.length||!!data.foam.photo||!!data.foam.keepouts?.length,
   // Cloud sync hooks: the raw drawer (no embedded photo), its foam photo blob, and the library.
