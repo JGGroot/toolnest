@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261024-library1';
+import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261024-projects1';
 import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from '../dist/foam-align.js';
 import {fromSpec,reshapeTool,posePoint,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow,specRing} from '../dist/foam-shapes.js';
 const tool=(over={})=>({id:'t'+Math.random(),name:'T',x:20,y:20,rotation:0,depth:12,shape:rectShape(0,0,40,100),zones:[],...over});

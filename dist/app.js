@@ -1,18 +1,18 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {prepareCaptureAsync} from './capture-client.js?v=20261024-library1';
-import {createLiveCamera} from './camera-ui.js?v=20261024-library1';
-import {createFoamStudio} from './foam-ui.js?v=20261024-library1';
-import {createCloud} from './cloud.js?v=20261024-library1';
-import {validateFoam} from './foam-model.js?v=20261024-library1';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261024-library1';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261024-library1';
+import {prepareCaptureAsync} from './capture-client.js?v=20261024-projects1';
+import {createLiveCamera} from './camera-ui.js?v=20261024-projects1';
+import {createFoamStudio} from './foam-ui.js?v=20261024-projects1';
+import {createCloud} from './cloud.js?v=20261024-projects1';
+import {validateFoam} from './foam-model.js?v=20261024-projects1';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261024-projects1';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261024-projects1';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261024-library1';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261024-library1';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261024-projects1';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261024-projects1';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 let state={...DEFAULT_SETTINGS,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:true},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='outline',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null,gripPreview=false;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261024-library1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261024-projects1',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer;
@@ -284,10 +284,10 @@ function endOutlineSession(apply){
  syncInputs();applyZoom();render(false);
  foamStudio.show();if(rings)session.onDone(rings);
 }
-foamStudio=createFoamStudio({editOutline,toast,download,modal:showModal,capture:()=>setMobilePanel('capture'),captureFoam:()=>liveCamera.open({onFrame:image=>foamStudio.captureFoamImage(image)}),saveProject:()=>$('saveBtn').click(),openProject:()=>$('openBtn').click(),setStudio:mode=>{for(const [id,m] of [['traceStudioBtn','trace'],['foamStudioBtn','foam']])$(id).setAttribute('aria-pressed',String(m===mode));}});
+foamStudio=createFoamStudio({editOutline,toast,download,modal:showModal,capture:()=>setMobilePanel('capture'),captureFoam:()=>liveCamera.open({onFrame:image=>foamStudio.captureFoamImage(image)}),saveProject:()=>$('saveBtn').click(),openProject:()=>$('openBtn').click(),setStudio:mode=>{for(const [id,m] of [['libraryStudioBtn','library'],['traceStudioBtn','trace'],['foamStudioBtn','foam']])$(id).setAttribute('aria-pressed',String(m===mode));}});
 // Optional cloud account. On a phone its two capture actions open the camera for tools (Trace) or a new foam.
 createCloud({toast,modal:showModal,foam:foamStudio,startToolPhoto:()=>{foamStudio.hide();setMobilePanel('capture');$('cameraInput').click();},startFoamPhoto:()=>foamStudio.newFoam()});
-$('traceStudioBtn').onclick=()=>foamStudio.hide();$('foamStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);else foamStudio.show();};$('outlineSessionDone').onclick=()=>endOutlineSession(true);$('outlineSessionCancel').onclick=()=>endOutlineSession(false);$('libraryBtn').onclick=()=>foamStudio.openLibrary();
+$('traceStudioBtn').onclick=()=>foamStudio.hide();$('foamStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);else foamStudio.show();};$('outlineSessionDone').onclick=()=>endOutlineSession(true);$('outlineSessionCancel').onclick=()=>endOutlineSession(false);$('libraryStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);foamStudio.showLibrary();};
 function captureProfile(i){if(previewError||previewPending)return null;const t=state.tools[i];if(!t)return null;return makeCutPaths([t.points],state.fingers.filter(f=>f.tool===i),state.paper,state.clearance,state.smoothing,{mode:state.smoothingMode,simplification:state.simplification,radius:state.curveRadius,maxDeviation:state.maxDeviation});}
 $('saveCaptureTool').onclick=()=>{const paths=captureProfile(state.selected);if(paths)foamStudio.addCaptured(paths,state.tools[state.selected].name,true);};$('addCaptureTool').onclick=()=>{const paths=captureProfile(state.selected);if(paths)foamStudio.addCaptured(paths,state.tools[state.selected].name);};// Save every traced tool in one go; saving the same photo again updates those library entries.
 const savedTools=new Map();$('saveAllTools').onclick=()=>{const key=i=>imageReadRevision+':'+i,items=state.tools.map((t,i)=>({paths:captureProfile(i),name:t.name,id:savedTools.get(key(i))}));if(!items.some(i=>i.paths))return toast('Outlines are still updating. Try again in a moment.');const ids=foamStudio.saveTools(items);ids.forEach((id,i)=>{if(id)savedTools.set(key(i),id);});const n=ids.filter(Boolean).length;toast(`✓ Saved ${n} tool${n===1?'':'s'} to your library.`);};
