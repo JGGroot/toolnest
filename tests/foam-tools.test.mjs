@@ -1,5 +1,5 @@
 import test from 'node:test';import assert from 'node:assert/strict';
-import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261024-photo1';
+import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261024-photo2';
 import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from '../dist/foam-align.js';
 import {fromSpec,reshapeTool,posePoint,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow,specRing} from '../dist/foam-shapes.js';
 const tool=(over={})=>({id:'t'+Math.random(),name:'T',x:20,y:20,rotation:0,depth:12,shape:rectShape(0,0,40,100),zones:[],...over});
@@ -14,7 +14,7 @@ test('Sketch tools: corner/centre rectangles, typed sizes, rotated slots, typed 
  let slot=sketchStep('slot',[[0,0]],[30,-29]);near(slot.point[0],slot.point[1]*-1);s=sketchStep('slot',[[0,0],[30,30]],[0,10]);near(s.shape.rotation,45);near(s.live.w,2*10/Math.SQRT2);const ring=box(placedRing(s.shape)),t=sketchedTool(s.shape,{name:'S',depth:10}),pb=extent(posed(t));for(const k of ['minX','minY','maxX','maxY'])near(ring[k],pb[k],1e-6);near((pb.minX+pb.maxX)/2,15);
  s=sketchStep('line',[[0,0],[10,0]],[10,7],{len:20});near(s.point[0],10);near(s.point[1],20);s=sketchStep('line',[[0,0]],[10,0.5],{ang:180});near(s.point[0],-Math.hypot(10,.5));s=sketchStep('line',[[0,0]],[10,0.5],{},{snap:false});assert.ok(Math.abs(s.point[1]-.5)<1e-9);
  assert.deepEqual(sketchFields('slot',2),[['w','W']]);assert.deepEqual(sketchFields('spline',3),[]);assert.deepEqual(sketchFields('rect',0),[]);});
-import {closestGap} from '../dist/foam-model.js?v=20261024-photo1';
+import {closestGap} from '../dist/foam-model.js?v=20261024-photo2';
 import {scaleTool,mirrorTool} from '../dist/foam-shapes.js';
 test('Spacing gaps, scaling about the centre and mirroring in both screen axes',()=>{const a=rectShape(0,0,10,10),b=rectShape(13,4,10,10),g=closestGap(a,b,8);near(g.d,3);assert.equal(g.p[0],10);near(g.q[0],13);assert.equal(closestGap(a,rectShape(40,0,5,5),8),null);
  const t=tool({x:100,y:50,rotation:30,spec:{type:'rect',w:40,h:100,r:4},zones:[{id:'z',depth:20,shape:rectShape(0,0,20,20)}]}),c=extent(posed(t)),s=scaleTool(t,1.5,.5),c2=extent(posed(s));near((c.minX+c.maxX)/2,(c2.minX+c2.maxX)/2);near((c.minY+c.maxY)/2,(c2.minY+c2.maxY)/2);assert.deepEqual(extent(s.shape),{minX:0,minY:0,maxX:60,maxY:50});assert.deepEqual([s.spec.w,s.spec.h,s.spec.r],[60,50,2]);near(shapeArea(s.zones[0].shape),300);

@@ -1,12 +1,12 @@
 import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261022-perf1';
-import {createStockPhoto} from './stock-photo-ui.js?v=20261024-photo1';
-import {referenceCheck} from './stock-photo-model.js?v=20261024-photo1';
+import {createStockPhoto} from './stock-photo-ui.js?v=20261024-photo2';
+import {referenceCheck} from './stock-photo-model.js?v=20261024-photo2';
 import {storePhoto,loadPhoto,blobDataURL,dataURLBlob} from './media-store.js';
-import {hasCrossings} from './outline.js?v=20261024-photo1';
-import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261024-photo1';
+import {hasCrossings} from './outline.js?v=20261024-photo2';
+import {DEFAULT_FOAM,uid,clone,extent,posed,unpose,normalizePaths,shapeD,rectShape,pointIn,zonesFor,checkLayout,autoArrange,validateFoam,exportFoamSVG,exportFoamDXF,depthCSV,camSetup,findPlacement} from './foam-model.js?v=20261024-photo2';
 import clip from './vendor/polygon-clipping.js';
-import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from './foam-align.js?v=20261024-photo1';
-import {SKETCH_TOOLS,sketchStep,sketchFields,placedRing,sketchedTool,parseLength,splinePoints,fromSpec,specRing,scaleTool,mirrorTool,reshapeTool,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow} from './foam-shapes.js?v=20261024-photo1';
+import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from './foam-align.js?v=20261024-photo2';
+import {SKETCH_TOOLS,sketchStep,sketchFields,placedRing,sketchedTool,parseLength,splinePoints,fromSpec,specRing,scaleTool,mirrorTool,reshapeTool,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow} from './foam-shapes.js?v=20261024-photo2';
 const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg',KEY='toolnest.foam.v1',LIB='toolnest.library.v1';
 const escape=s=>String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
 const icon=d=>`<svg viewBox="0 0 16 16" aria-hidden="true"><path d="${d}"/></svg>`;
@@ -100,7 +100,7 @@ export function createFoamStudio(api){
   if(!data.tools.length&&!list.children.length)list.innerHTML='<div class="foam-empty">Add tools from a photo or your library.</div>';
  }
 
- async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js?v=20261024-photo1');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
+ async function update3D(){if(view!=='3d'||document.body.dataset.studio!=='foam')return;if(!viewer&&!viewerLoading){viewerLoading=true;try{const {Foam3D}=await import('./foam-3d.js?v=20261024-photo2');viewer=new Foam3D($('foamWebGL'));}catch(e){api.toast('3D preview needs WebGL. The 2D layout and exports remain available.');setView('layout');}finally{viewerLoading=false;}}if(!viewer)return;const key=JSON.stringify([data,selected,$('foamPhotoVisible').checked?photoURL:'']);if(key!==modelKey){viewer.update(clone(data),selected,$('foamPhotoVisible').checked?photoURL:null);modelKey=key;}else viewer.resize();if(fitRequested){viewer.focusTool(selected);fitRequested=false;}}
  function schedule3D(){if(pending3d)return;pending3d=true;requestAnimationFrame(()=>{pending3d=false;update3D();});}
  function renderLayoutControls(){
   for(const id of picked)if(!data.tools.some(o=>o.id===id))picked.delete(id);
@@ -150,8 +150,11 @@ export function createFoamStudio(api){
   if(strip.dataset.html!==html){strip.innerHTML=html;strip.dataset.html=html;strip.querySelector('.strip-card.active')?.scrollIntoView({block:'nearest',inline:'nearest'});}}
  strip.onclick=e=>{const b=e.target.closest('[data-foam],[data-foam-act]');if(!b)return;if(b.dataset.foam!==undefined)return switchFoam(+b.dataset.foam);const act=b.dataset.foamAct;if(act==='add')addFoam(true);else if(act==='photo')foamPhoto();else if(act==='dup')duplicateFoam(project.active);else if(act==='del')deleteFoam(project.active);else if(act==='rename')renameInline(project.active);};
  strip.ondblclick=e=>{const n=e.target.closest('[data-foam-name]');if(n)renameInline(+n.dataset.foamName);};
- async function foamPhoto(){const photo=data.foam.photo;if(!photo?.sourceId||!photo.corners)return stockPhoto.open();let source=sourceAssets.get(photo.sourceId)||await loadPhoto(photo.sourceId).catch(()=>null);if(!source&&photoFetcher)source=await photoFetcher(photo.sourceId).catch(()=>null);
-  if(!source){api.toast('The original of this photo is not on this device. Choose or take it again to recalibrate.');return stockPhoto.open();}sourceAssets.set(photo.sourceId,source);stockPhoto.recalibrate({source,corners:photo.corners,width:photo.width,height:photo.height});}
+ // 📷 reopens the photo for recalibration: its original with the saved corners, or (for photos aligned
+ // before originals were kept) the aligned photo itself with its corners at the edges.
+ async function foamPhoto(){const photo=data.foam.photo;if(!photo)return stockPhoto.open();const find=async id=>sourceAssets.get(id)||photoAssets.get(id)?.blob||await loadPhoto(id).catch(()=>null)||(photoFetcher?await photoFetcher(id).catch(()=>null):null);
+  const original=photo.sourceId&&photo.corners?await find(photo.sourceId):null,source=original||await find(photo.id);if(!source){api.toast('This foam photo is not on this device. Choose or take it again.');return stockPhoto.open();}
+  if(original)sourceAssets.set(photo.sourceId,original);stockPhoto.recalibrate({source,corners:original?photo.corners:[[0,0],[1,0],[1,1],[0,1]],width:photo.width,height:photo.height});}
  function renameInline(i){const span=strip.querySelector(`[data-foam-name="${i}"]`);if(!span)return;const f=i===project.active?data:project.foams[i],input=document.createElement('input');input.className='strip-rename';input.value=f.name;input.maxLength=80;input.setAttribute('aria-label','Foam name');span.replaceWith(input);input.focus();input.select();let done=false;
   const finish=save=>{if(done)return;done=true;const v=input.value.trim();if(save&&v&&v!==f.name){if(i===project.active)remember();f.name=v.slice(0,80);}strip.dataset.html='';render();};input.onkeydown=e=>{e.stopPropagation();if(e.key==='Enter')finish(true);else if(e.key==='Escape')finish(false);};input.onblur=()=>finish(true);}
 
@@ -228,7 +231,7 @@ export function createFoamStudio(api){
  function pumpDragCheck(){
   if(!layoutQueued||layoutBusy||!drag?.changed||layoutWorkerFailed)return;
   if(!layoutWorker){try{
-   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261024-photo1',import.meta.url),{type:'module'});
+   layoutWorker=new Worker(new URL('./layout-worker.js?v=20261024-photo2',import.meta.url),{type:'module'});
    layoutWorker.onmessage=({data:result})=>{layoutBusy=false;if(result.id===layoutRevision&&drag?.changed&&!result.error)showDragIssues(result.issues);pumpDragCheck();};
    layoutWorker.onerror=()=>{layoutWorker.terminate();layoutWorker=null;layoutBusy=false;layoutQueued=false;layoutWorkerFailed=true;};
   }catch{layoutWorkerFailed=true;return;}}
@@ -401,7 +404,7 @@ export function createFoamStudio(api){
  $('foamVerifyPhoto').onclick=()=>{measurePoints=[];drawZone=false;areaMode='measure';setView('layout');resetView();panel('layout');};
  function showReference(){const distance=Math.hypot(measurePoints[1][0]-measurePoints[0][0],measurePoints[1][1]-measurePoints[0][1]);api.modal('Check a measured reference','PHOTO SCALE',`<p>Selected distance: <strong>${distance.toFixed(2)} mm</strong>. Enter the physical length measured between those same points.</p><div class="foam-reference-fields"><label>Actual length · mm <input id="photoReferenceActual" type="number" min="0.1" max="3000" inputmode="decimal" step="0.1"></label><button id="photoReferenceSave" class="primary">Record check</button></div><div id="photoReferenceResult" class="foam-reference-preview"></div>`);const input=$('photoReferenceActual'),out=$('photoReferenceResult');function preview(){try{const result=referenceCheck(measurePoints,+input.value);out.textContent=`${result.passed?'Pass':'Outside check tolerance'} · ${result.error.toFixed(2)} mm difference · tolerance ${result.tolerance.toFixed(2)} mm`;}catch{out.textContent='Enter the measured reference length.';}}input.oninput=preview;$('photoReferenceSave').onclick=()=>{try{const result=referenceCheck(measurePoints,+input.value);if(!data.foam.photo)return;remember();data.foam.photo.verification=result;render();$('modal').close();}catch(e){api.toast(e.message);}};}
  $('foamSetupGuide').onclick=()=>api.download(camSetup(data,{alignmentFrame:$('foamAlignmentFrame').checked}),`${data.name.replace(/[^a-z0-9_-]/gi,'-')}-CAM-setup.txt`,'text/plain');
- async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js?v=20261024-photo1'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
+ async function exportSTL(){const button=$('foamExport');button.disabled=true;button.textContent='Building model…';try{const {buildSTLAsync}=await import('./foam-stl-client.js?v=20261024-photo2'),buffer=await buildSTLAsync(clone(data));api.download(buffer,`${data.name.replace(/[^a-z0-9_-]/gi,'-')}.stl`,'model/stl');api.toast('STL exported in mm. Disable auto-fit and verify stock dimensions in CAM.');}catch(e){api.toast(e.message);}finally{button.textContent='Export outlines ↓';render();}}
  if(matchMedia('(max-width:767px)').matches)$('foamDimensionSettings').open=false;$('foamDimensionSettings').ontoggle=()=>{if(matchMedia('(max-width:767px)').matches){if($('foamDimensionSettings').open)resetView();else if(host.dataset.panel==='settings')fitSelected();}};
  render();return {show,hide,addCaptured,openLibrary,showLibrary,getData:()=>{syncActive();const output=clone(data),photo=output.foam.photo;if(photo&&$('foamIncludePhoto').checked&&photoAssets.get(photo.id)?.dataURL)photo.image=photoAssets.get(photo.id).dataURL;output.project={id:project.id,name:project.name,active:project.active,foams:clone(project.foams)};return output;},load:incoming=>{const valid=validateFoam(incoming),image=incoming.foam?.photo?.image;let next;try{next=incoming.project?validProject(incoming.project):null;}catch{next=null;}if(next){const i=next.foams.findIndex(f=>f.id===valid.id);next.active=i<0?next.active:i;}else next={id:uid(),name:valid.name,active:0,foams:[valid]};if(valid.foam.photo&&image){delete valid.foam.photo.image;cachePhoto(valid.foam.photo.id,dataURLBlob(image));}for(const f of next.foams)if(f.foam.photo)delete f.foam.photo.image;setProject(next);},clear:()=>setProject({id:uid(),name:'Untitled project',active:0,foams:[blankFoam(1)]}),hasTools:projectHasContent,
   // Cloud sync hooks: the raw drawer (no embedded photo), its foam photo blob, and the library.

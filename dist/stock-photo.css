@@ -3,3 +3,8 @@
 @media print{.stock-photo-dialog{display:none!important}}
 .foam-export label{min-height:44px;align-items:center}
 @media(max-width:1280px),(pointer:coarse){.foam-area-list input{font-size:16px}}
+/* Header, status and action bar (formerly shared with the removed live-camera dialog) */
+.camera-header{display:flex;align-items:center;justify-content:space-between;gap:16px;margin-bottom:14px}.camera-header h2{margin:0;font-size:21px}.camera-header button{min-width:44px;min-height:44px;font-size:24px}.stock-photo-dialog .icon-btn{min-width:44px;width:44px}
+.camera-status{font-size:13px;color:#5d7353;line-height:1.6;min-height:30px;padding:8px 0;white-space:pre-line}.camera-status[data-state=error]{color:#ab5638}.camera-status[data-state=waiting]{color:#7b786a}
+.camera-actions{display:flex;flex-wrap:wrap;gap:8px;position:sticky;bottom:-20px;padding:12px 0 8px;background:var(--panel);z-index:2;border-top:1px solid var(--line)}.camera-actions button{min-height:48px;flex:1;padding:10px 14px;justify-content:center}.stock-photo-dialog [hidden]{display:none!important}
+@media(max-width:767px){.camera-header{margin-bottom:10px}.camera-header h2{font-size:19px}.camera-status{font-size:12px;min-height:40px}.camera-actions{padding:10px 0 6px}.camera-actions button{font-size:13px;padding:9px}}
