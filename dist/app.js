@@ -1,15 +1,15 @@
-import {createTapUI} from './tap-ui.js?v=20261025-fpk3';
-import {validPrompts} from './segment-model.js?v=20261025-fpk3';
-import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261025-fpk3';
-import {prepareCaptureAsync} from './capture-client.js?v=20261025-fpk3';
-import {createFoamStudio} from './foam-ui.js?v=20261025-fpk3';
-import {createCloud} from './cloud.js?v=20261025-fpk3';
-import {validateFoam} from './foam-model.js?v=20261025-fpk3';
-import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261025-fpk3';
-import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261025-fpk3';
+import {createTapUI} from './tap-ui.js?v=20261025-cut2';
+import {validPrompts} from './segment-model.js?v=20261025-cut2';
+import {SVGScene,attr,text as setText} from './svg-scene.js?v=20261025-cut2';
+import {prepareCaptureAsync} from './capture-client.js?v=20261025-cut2';
+import {createFoamStudio} from './foam-ui.js?v=20261025-cut2';
+import {createCloud} from './cloud.js?v=20261025-cut2';
+import {validateFoam} from './foam-model.js?v=20261025-cut2';
+import {DEFAULT_SETTINGS,traceKey,traceOptions,computePreview} from './preview-model.js?v=20261025-cut2';
+import {calibrationSVG,calibrationPDF,calibrationPrintHTML} from './calibration.js?v=20261025-cut2';
 import {pinchTransform,boundedPan,limitZoom} from './gestures.js';
-import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261025-fpk3';
-import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261025-fpk3';
+import {PAPERS,markerBits,markerCorners,calibrate,autoCalibrate,warp,extract,makeCutPaths,pathD,bounds,exportSVG,exportDXF,polygonArea} from './vision.js?v=20261025-cut2';
+import {makeFixture,TEST_CASES,evaluateCalibration} from './fixtures.js?v=20261025-cut2';
 // Native-app feel: the page itself never zooms or slides sideways (iOS ignores user-scalable=no, so
 // its pinch gestures are cancelled here). The layout and photo views keep their own pinch zoom.
 for(const type of ['gesturestart','gesturechange'])document.addEventListener(type,e=>e.preventDefault(),{passive:false});
@@ -17,7 +17,7 @@ const $=id=>document.getElementById(id),NS='http://www.w3.org/2000/svg';
 const START={...DEFAULT_SETTINGS,traceMethod:'tap'};// AI Trace for new work; projects keep their saved method.
 let state={...START,paper:'a4',tools:[],fingers:[],selected:0,cal:null,demo:false},cutPaths=[],cutOwners=[],source=null,corrected=null,sourceURL='',correctedURL='',view='overlay',mode='select',zoom=1,history=[],future=[],drag=null,busy=false,testResults=[];
 let geometryTraceKey=null,previewError='',previewPending=false,previewRevision=0,previewApplied=0,previewQueue=null,previewInFlight=null,previewWorker=null,previewWorkerFailed=false,settingEdit=null;let captureEpoch=0,imageReadRevision=0;
-try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261025-fpk3',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
+try{previewWorker=new Worker(new URL('./preview-worker.js?v=20261025-cut2',import.meta.url),{type:'module'});}catch{previewWorkerFailed=true;}
 let activeNode=-1,insertPoint=false,pan={x:0,y:0},gesture=null,paintFrame=0,latestTracePointer=null;const pointers=new Map();
 const coarse=()=>matchMedia('(pointer:coarse)').matches;
 let projectName='Toolnest',foamStudio=null,draftTimer,tapUI=null;

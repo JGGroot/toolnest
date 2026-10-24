@@ -1,5 +1,5 @@
 import clip from './vendor/polygon-clipping.js';
-import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261025-fpk3';
+import {uid,clone,extent,posed,moveShape,normalizePaths,zonesFor,shapeArea} from './foam-model.js?v=20261025-cut2';
 // Generators and edits for parametric cutouts (see validSpec in foam-model.js) and for
 // operations that combine or repeat tools.
 // Closed centripetal Catmull-Rom spline through the clicked points, sampled finely enough for cutting.
@@ -66,3 +66,10 @@ export function scaleTool(t,sx,sy){const b0=extent(posed(t)),cx=(b0.minX+b0.maxX
 // negating the rotation gives the same result at any rotation.
 export function mirrorTool(t,axis){const b=extent(t.shape),k=axis==='x'?0:1,size=k?b.maxY:b.maxX,flipPoint=p=>{const q=[...p];q[k]=size-q[k];return q;},flip=shape=>shape.map(poly=>poly.map(r=>r.map(flipPoint).reverse()));
  return {...t,shape:flip(t.shape),zones:t.zones.map(z=>({...z,shape:flip(z.shape)})),...(t.spec?.points?{spec:{...t.spec,points:t.spec.points.map(flipPoint)}}:{}),rotation:(360-t.rotation)%360};}
+// ---- Erase and split. A cutter (foam millimetres) is taken out of tools, and each comes back as one tool
+// per remaining piece, so a traced pocket that joined several tools can be taken apart. A split line is a
+// strip `width` wide along the clicked points. Depth regions follow the piece they fall in; pieces smaller
+// than `minArea` mm² are dropped. Returns [{tool, pieces}] for the tools the cutter touched.
+export function lineCutter(points,width=.3){const h=width/2,parts=[];for(let i=1;i<points.length;i++){const [x1,y1]=points[i-1],[x2,y2]=points[i],L=Math.hypot(x2-x1,y2-y1);if(L<1e-6)continue;const ux=(x2-x1)/L*h,uy=(y2-y1)/L*h;parts.push([[[x1-ux-uy,y1-uy+ux],[x2+ux-uy,y2+uy+ux],[x2+ux+uy,y2+uy-ux],[x1-ux+uy,y1-uy-ux],[x1-ux-uy,y1-uy+ux]]]);}if(!parts.length)throw Error('Draw a line across the pocket.');return clip.union(...parts);}
+export function cutTools(tools,cutter,{minArea=1}={}){const out=[];for(const t of tools){const whole=posed(t);if(!clip.intersection(whole,cutter).length)continue;const rest=clip.difference(whole,cutter).filter(p=>shapeArea([p])>=minArea),zones=zonesFor(t).map(z=>({...z,shape:posed(t,z.shape)}));
+  const pieces=rest.map((p,k)=>{const piece={...clone(t),id:k?uid():t.id,name:rest.length>1?`${t.name} · ${k+1}`:t.name,...bake([p],zones.flatMap(z=>{const s=clip.intersection(z.shape,[p]);return shapeArea(s)>=.5?[{...z,id:uid(),shape:s}]:[];}))};delete piece.spec;delete piece.libraryId;return piece;});out.push({tool:t,pieces});}return out;}

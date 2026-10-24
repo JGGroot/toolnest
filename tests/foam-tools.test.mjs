@@ -1,7 +1,7 @@
-import test from 'node:test';import assert from 'node:assert/strict';
-import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261025-fpk3';
+import test from 'node:test';import clip from '../dist/vendor/polygon-clipping.js';import assert from 'node:assert/strict';
+import {DEFAULT_FOAM,rectShape,posed,extent,shapeArea,validateFoam,zonesFor} from '../dist/foam-model.js?v=20261025-cut2';
 import {unitsFor,boxOf,alignMoves,distributeMoves,applyMoves,snapTargets,snapDrag} from '../dist/foam-align.js';
-import {fromSpec,reshapeTool,posePoint,nearestEdge,mergeTools,subtractTools,arrayCopies,parseSockets,socketRow,specRing} from '../dist/foam-shapes.js';
+import {fromSpec,reshapeTool,posePoint,nearestEdge,mergeTools,subtractTools,cutTools,lineCutter,arrayCopies,parseSockets,socketRow,specRing} from '../dist/foam-shapes.js';
 const tool=(over={})=>({id:'t'+Math.random(),name:'T',x:20,y:20,rotation:0,depth:12,shape:rectShape(0,0,40,100),zones:[],...over});
 const near=(a,b,e=1e-6)=>assert.ok(Math.abs(a-b)<e,`${a} ≠ ${b}`);
 test('Align and distribute move whole units, and a single unit aligns to the usable foam area',()=>{const tools=[tool({x:30,y:50}),tool({x:120,y:20,lock:'g'}),tool({x:180,y:40,lock:'g'}),tool({x:400,y:90})];const units=unitsFor(tools,[0,1,3]);assert.deepEqual(units,[[0],[1,2],[3]]);applyMoves(tools,alignMoves(tools,units,'top'));assert.deepEqual(tools.map(t=>t.y),[20,20,40,20]);applyMoves(tools,distributeMoves(tools,units,'x'));const boxes=units.map(u=>boxOf(tools,u));near(boxes[1].minX-boxes[0].maxX,boxes[2].minX-boxes[1].maxX);near(boxes[0].minX,30);near(boxes[2].maxX,440);const frame={minX:10,minY:10,maxX:590,maxY:390};applyMoves(tools,alignMoves(tools,[[3]],'right',frame));near(boxOf(tools,[3]).maxX,590);applyMoves(tools,alignMoves(tools,[[3]],'vcenter',frame));near(boxOf(tools,[3]).minY,150);});
@@ -14,8 +14,22 @@ test('Sketch tools: corner/centre rectangles, typed sizes, rotated slots, typed 
  let slot=sketchStep('slot',[[0,0]],[30,-29]);near(slot.point[0],slot.point[1]*-1);s=sketchStep('slot',[[0,0],[30,30]],[0,10]);near(s.shape.rotation,45);near(s.live.w,2*10/Math.SQRT2);const ring=box(placedRing(s.shape)),t=sketchedTool(s.shape,{name:'S',depth:10}),pb=extent(posed(t));for(const k of ['minX','minY','maxX','maxY'])near(ring[k],pb[k],1e-6);near((pb.minX+pb.maxX)/2,15);
  s=sketchStep('line',[[0,0],[10,0]],[10,7],{len:20});near(s.point[0],10);near(s.point[1],20);s=sketchStep('line',[[0,0]],[10,0.5],{ang:180});near(s.point[0],-Math.hypot(10,.5));s=sketchStep('line',[[0,0]],[10,0.5],{},{snap:false});assert.ok(Math.abs(s.point[1]-.5)<1e-9);
  assert.deepEqual(sketchFields('slot',2),[['w','W']]);assert.deepEqual(sketchFields('spline',3),[]);assert.deepEqual(sketchFields('rect',0),[]);});
-import {closestGap} from '../dist/foam-model.js?v=20261025-fpk3';
+import {closestGap} from '../dist/foam-model.js?v=20261025-cut2';
 import {scaleTool,mirrorTool} from '../dist/foam-shapes.js';
 test('Spacing gaps, scaling about the centre and mirroring in both screen axes',()=>{const a=rectShape(0,0,10,10),b=rectShape(13,4,10,10),g=closestGap(a,b,8);near(g.d,3);assert.equal(g.p[0],10);near(g.q[0],13);assert.equal(closestGap(a,rectShape(40,0,5,5),8),null);
  const t=tool({x:100,y:50,rotation:30,spec:{type:'rect',w:40,h:100,r:4},zones:[{id:'z',depth:20,shape:rectShape(0,0,20,20)}]}),c=extent(posed(t)),s=scaleTool(t,1.5,.5),c2=extent(posed(s));near((c.minX+c.maxX)/2,(c2.minX+c2.maxX)/2);near((c.minY+c.maxY)/2,(c2.minY+c2.maxY)/2);assert.deepEqual(extent(s.shape),{minX:0,minY:0,maxX:60,maxY:50});assert.deepEqual([s.spec.w,s.spec.h,s.spec.r],[60,50,2]);near(shapeArea(s.zones[0].shape),300);
  const L=tool({x:0,y:0,rotation:0,shape:[[[[0,0],[30,0],[30,5],[5,5],[5,40],[0,40],[0,0]]]]});for(const rot of [0,37,90]){const base={...L,rotation:rot},bb=extent(posed(base)),cx=(bb.minX+bb.maxX)/2,cy=(bb.minY+bb.maxY)/2;for(const axis of ['x','y']){const m=mirrorTool(base,axis),probe=[2,30],before=posed(base,[[[probe]]])[0][0][0],after=posed(m,[[[axis==='x'?[L.shape[0][0][1][0]-probe[0],probe[1]]:[probe[0],40-probe[1]]]]])[0][0][0];if(axis==='x'){near(after[0],2*cx-before[0]);near(after[1],before[1]);}else{near(after[1],2*cy-before[1]);near(after[0],before[0]);}}}});
+test('Erase and split take a traced pocket apart: one tool per piece, regions follow, untouched tools are left',()=>{
+ // A traced "comb": a 100 × 20 bar with two 20 × 40 teeth, one tooth carrying a deeper region.
+ const comb=tool({x:10,y:10,shape:clip.union(rectShape(0,0,100,20),rectShape(10,20,20,40),rectShape(70,20,20,40)),zones:[{id:'z',depth:20,shape:rectShape(72,40,16,16)}]}),other=tool({x:200,y:10});
+ // Erase the bar: the two teeth become separate pockets, the region stays with the right tooth.
+ const [erased]=cutTools([comb,other],rectShape(5,5,110,25));assert.equal(erased.tool,comb);assert.equal(erased.pieces.length,2);
+ const boxes=erased.pieces.map(t=>{const b=extent(posed(t));return [b.minX,b.minY,b.maxX,b.maxY].map(v=>Math.round(v));}).sort((a,b)=>a[0]-b[0]);assert.deepEqual(boxes,[[20,30,40,70],[80,30,100,70]]);
+ const right=erased.pieces.find(t=>extent(posed(t)).minX>50);assert.equal(right.zones.length,1);assert.ok(Math.abs(shapeArea(posed(right,right.zones[0].shape))-256)<1);assert.equal(erased.pieces.find(t=>t!==right).zones.length,0);
+ assert.equal(erased.pieces.filter(t=>t.id===comb.id).length,1);assert.ok(erased.pieces.every(t=>/T · [12]/.test(t.name)));
+ // Split across the bar between the teeth: two pockets that together keep almost all the area.
+ const [split]=cutTools([comb],lineCutter([[60,0],[60,40]]));assert.equal(split.pieces.length,2);const total=split.pieces.reduce((a,t)=>a+shapeArea(posed(t)),0);assert.ok(Math.abs(total-(shapeArea(posed(comb))-.3*20))<.5,`area ${total}`);
+ // A cutter that misses every tool changes nothing; one that covers a tool removes it.
+ assert.deepEqual(cutTools([comb],rectShape(300,300,10,10)),[]);assert.equal(cutTools([other],rectShape(150,0,200,200))[0].pieces.length,0);
+ assert.throws(()=>lineCutter([[1,1]]));
+});

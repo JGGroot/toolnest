@@ -1,4 +1,4 @@
-import {checkLayout} from './foam-model.js?v=20261025-fpk3';
+import {checkLayout} from './foam-model.js?v=20261025-cut2';
 let model=null;
 self.onmessage=({data})=>{
  const {id}=data;
