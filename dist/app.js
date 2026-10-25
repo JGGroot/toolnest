@@ -289,8 +289,8 @@ function endOutlineSession(apply){
  foamStudio.show();if(rings)session.onDone(rings);
 }
 foamStudio=createFoamStudio({editOutline,toast,download,modal:showModal,capture:()=>setMobilePanel('capture'),saveProject:()=>$('saveBtn').click(),openProject:()=>$('openBtn').click(),setStudio:mode=>{for(const [id,m] of [['libraryStudioBtn','library'],['traceStudioBtn','trace'],['foamStudioBtn','foam']])$(id).setAttribute('aria-pressed',String(m===mode));}});
-// Optional cloud account. On a phone it offers a shortcut that opens the camera for tools (Trace).
-createCloud({toast,modal:showModal,foam:foamStudio,startToolPhoto:()=>{foamStudio.hide();setMobilePanel('capture');$('cameraInput').click();}});
+// The account shortcut uses the same photo chooser as the Trace toolbar.
+createCloud({toast,modal:showModal,foam:foamStudio,startToolPhoto:()=>{foamStudio.hide();setMobilePanel('capture');confirmSave(()=>$('fileInput').click());}});
 $('traceStudioBtn').onclick=()=>foamStudio.hide();$('foamStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);else confirmSave(()=>foamStudio.show());};$('outlineSessionDone').onclick=()=>endOutlineSession(true);$('outlineSessionCancel').onclick=()=>endOutlineSession(false);$('libraryStudioBtn').onclick=()=>{if(outlineSession)endOutlineSession(false);confirmSave(()=>foamStudio.showLibrary());};
 function captureProfile(i){if(previewError||previewPending)return null;const t=state.tools[i];if(!t)return null;return makeCutPaths([t.points],state.fingers.filter(f=>f.tool===i),state.paper,state.clearance,state.smoothing,{mode:state.smoothingMode,simplification:state.simplification,radius:state.curveRadius,maxDeviation:state.maxDeviation});}
 // A JPEG of the tool cut from the rectified photo (6 mm margin, at most 1000 px). The crop is taken now; the
@@ -314,8 +314,8 @@ function confirmSave(next){const list=state.tools.map((t,i)=>!t.libraryId&&!t.sk
  const field=i=>document.querySelector(`[data-name="${i}"]`);for(const i of list){field(i).value=state.tools[i].name;field(i).onkeydown=e=>{if(e.key==='Enter')$('confirmSave').click();};}if(matchMedia('(pointer:fine)').matches){field(list[0]).focus();field(list[0]).select();}
  $('confirmSave').onclick=()=>{const keep=list.filter(i=>document.querySelector(`[data-save="${i}"]`)?.checked!==false);let named=false;for(const i of list){const v=field(i).value.trim();if(v&&v!==state.tools[i].name){if(!named)remember();named=true;state.tools[i].name=v;}if(!keep.includes(i))state.tools[i].skipSave=true;}if(keep.length&&!saveToLibrary(keep))return;saveDraft();$('modal').close();next();};
  $('skipSave').onclick=()=>{for(const i of list)state.tools[i].skipSave=true;saveDraft();$('modal').close();next();};}
-// One button for the next photo: the camera on phones, the file picker elsewhere.
-$('photoBtn').onclick=()=>confirmSave(()=>(matchMedia('(pointer:coarse)').matches?$('cameraInput'):$('fileInput')).click());
+// Without capture, the native image chooser offers saved photos as well as camera sources.
+$('photoBtn').onclick=()=>confirmSave(()=>$('fileInput').click());
 $('settingsBtn').onclick=()=>setMobilePanel(document.body.dataset.mobilePanel==='refine'?'workspace':'refine');
 $('addAllToFoam').onclick=()=>{if(!saveToLibrary(state.tools.map((_,i)=>i),true))return;state.tools.forEach((t,i)=>{const paths=captureProfile(i);if(paths)foamStudio.addCaptured(paths,t.name,false,t.libraryId);});};
 tapUI=createTapUI({state:()=>state,photo:()=>corrected,snapshot,remember,toast,draw:()=>render(false),commit:()=>{geometryTraceKey=traceKey(state);invalidatePreview();render();},overlay:()=>{mode='select';setView('overlay');setMobilePanel('workspace');},traced:()=>{const f=$('toolNameField'),t=state.tools[state.selected];if(!t||!matchMedia('(pointer:fine)').matches)return;f.disabled=false;f.value=t.name;f.focus();f.select();},method:value=>{ $('traceMethod').value=value;applySetting('traceMethod');endSetting();}});
