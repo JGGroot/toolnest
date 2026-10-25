@@ -1,0 +1,127 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 260" width="100%" height="100%">
+  <defs>
+    <linearGradient id="stepGrad1" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#3b82f6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#1d4ed8" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="stepGrad2" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#8b5cf6" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#6d28d9" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="stepGrad3" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#f59e0b" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#d97706" stop-opacity="0.05"/>
+    </linearGradient>
+    <linearGradient id="stepGrad4" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" stop-color="#10b981" stop-opacity="0.15"/>
+      <stop offset="100%" stop-color="#047857" stop-opacity="0.05"/>
+    </linearGradient>
+    <filter id="cardShadow" x="-10%" y="-10%" width="120%" height="120%">
+      <feDropShadow dx="0" dy="4" stdDeviation="6" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <style>
+    .step-title { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 15px; font-weight: 700; fill: #1e293b; }
+    .step-desc { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 12px; fill: #64748b; line-height: 1.4; }
+    .step-badge { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; font-size: 11px; font-weight: 800; }
+    .step-icon { font-size: 26px; }
+    @media (prefers-color-scheme: dark) {
+      .step-title { fill: #f8fafc; }
+      .step-desc { fill: #94a3b8; }
+      .card-bg-1 { fill: #1e293b; stroke: #334155; }
+      .card-bg-2 { fill: #1e293b; stroke: #334155; }
+      .card-bg-3 { fill: #1e293b; stroke: #334155; }
+      .card-bg-4 { fill: #1e293b; stroke: #334155; }
+    }
+    @media (prefers-color-scheme: light) {
+      .card-bg-1 { fill: #ffffff; stroke: #e2e8f0; }
+      .card-bg-2 { fill: #ffffff; stroke: #e2e8f0; }
+      .card-bg-3 { fill: #ffffff; stroke: #e2e8f0; }
+      .card-bg-4 { fill: #ffffff; stroke: #e2e8f0; }
+    }
+  </style>
+
+  <!-- Step 1 -->
+  <g transform="translate(15, 20)">
+    <rect class="card-bg-1" width="215" height="215" rx="14" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect width="215" height="215" rx="14" fill="url(#stepGrad1)"/>
+    <circle cx="42" cy="42" r="18" fill="#3b82f6" fill-opacity="0.15"/>
+    <text x="42" y="48" text-anchor="middle" class="step-icon">📸</text>
+    <rect x="145" y="28" width="55" height="22" rx="11" fill="#3b82f6"/>
+    <text x="172" y="43" text-anchor="middle" class="step-badge" fill="#ffffff">STEP 1</text>
+    
+    <text x="24" y="96" class="step-title">Snap Your Tools</text>
+    <text x="24" y="122" class="step-desc">Lay tools on standard A4</text>
+    <text x="24" y="140" class="step-desc">or Letter calibration sheet.</text>
+    <text x="24" y="158" class="step-desc">Snap with your phone camera</text>
+    <text x="24" y="176" class="step-desc">or upload any flat photo.</text>
+    <path d="M 24 198 L 191 198" stroke="#3b82f6" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- Arrow 1 -> 2 -->
+  <g transform="translate(235, 120)">
+    <path d="M 0 0 L 14 0 M 10 -4 L 14 0 L 10 4" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Step 2 -->
+  <g transform="translate(255, 20)">
+    <rect class="card-bg-2" width="215" height="215" rx="14" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect width="215" height="215" rx="14" fill="url(#stepGrad2)"/>
+    <circle cx="42" cy="42" r="18" fill="#8b5cf6" fill-opacity="0.15"/>
+    <text x="42" y="48" text-anchor="middle" class="step-icon">🧠</text>
+    <rect x="145" y="28" width="55" height="22" rx="11" fill="#8b5cf6"/>
+    <text x="172" y="43" text-anchor="middle" class="step-badge" fill="#ffffff">STEP 2</text>
+    
+    <text x="24" y="96" class="step-title">1-Tap AI Trace</text>
+    <text x="24" y="122" class="step-desc">On-device MediaPipe AI</text>
+    <text x="24" y="140" class="step-desc">snaps to true tool edges,</text>
+    <text x="24" y="158" class="step-desc">ignores chrome glare &amp;</text>
+    <text x="24" y="176" class="step-desc">peels away cast shadows.</text>
+    <path d="M 24 198 L 191 198" stroke="#8b5cf6" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- Arrow 2 -> 3 -->
+  <g transform="translate(475, 120)">
+    <path d="M 0 0 L 14 0 M 10 -4 L 14 0 L 10 4" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Step 3 -->
+  <g transform="translate(495, 20)">
+    <rect class="card-bg-3" width="215" height="215" rx="14" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect width="215" height="215" rx="14" fill="url(#stepGrad3)"/>
+    <circle cx="42" cy="42" r="18" fill="#f59e0b" fill-opacity="0.15"/>
+    <text x="42" y="48" text-anchor="middle" class="step-icon">🎛️</text>
+    <rect x="145" y="28" width="55" height="22" rx="11" fill="#f59e0b"/>
+    <text x="172" y="43" text-anchor="middle" class="step-badge" fill="#ffffff">STEP 3</text>
+    
+    <text x="24" y="96" class="step-title">Custom Fit &amp; Grips</text>
+    <text x="24" y="122" class="step-desc">Set snug fit clearance (mm),</text>
+    <text x="24" y="140" class="step-desc">add finger-grab cutouts,</text>
+    <text x="24" y="158" class="step-desc">smooth curves, and save</text>
+    <text x="24" y="176" class="step-desc">tools to your personal library.</text>
+    <path d="M 24 198 L 191 198" stroke="#f59e0b" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4"/>
+  </g>
+
+  <!-- Arrow 3 -> 4 -->
+  <g transform="translate(715, 120)">
+    <path d="M 0 0 L 14 0 M 10 -4 L 14 0 L 10 4" stroke="#94a3b8" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round"/>
+  </g>
+
+  <!-- Step 4 -->
+  <g transform="translate(735, 20)">
+    <rect class="card-bg-4" width="210" height="215" rx="14" stroke-width="1.5" filter="url(#cardShadow)"/>
+    <rect width="210" height="215" rx="14" fill="url(#stepGrad4)"/>
+    <circle cx="42" cy="42" r="18" fill="#10b981" fill-opacity="0.15"/>
+    <text x="42" y="48" text-anchor="middle" class="step-icon">🚀</text>
+    <rect x="140" y="28" width="55" height="22" rx="11" fill="#10b981"/>
+    <text x="167" y="43" text-anchor="middle" class="step-badge" fill="#ffffff">STEP 4</text>
+    
+    <text x="24" y="96" class="step-title">Design &amp; Export</text>
+    <text x="24" y="122" class="step-desc">Arrange drawers in 2D &amp; 3D.</text>
+    <text x="24" y="140" class="step-desc">Add socket rows &amp; pockets.</text>
+    <text x="24" y="158" class="step-desc">Export CAM-ready SVG, DXF,</text>
+    <text x="24" y="176" class="step-desc">or STL for Easel &amp; CNC.</text>
+    <path d="M 24 198 L 186 198" stroke="#10b981" stroke-width="2" stroke-linecap="round" stroke-opacity="0.4"/>
+  </g>
+</svg>

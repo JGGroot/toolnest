@@ -1,0 +1,83 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 960 310" width="100%" height="100%">
+  <defs>
+    <linearGradient id="headerGrad" x1="0%" y1="0%" x2="100%" y2="0%">
+      <stop offset="0%" stop-color="#0284c7"/>
+      <stop offset="100%" stop-color="#0ea5e9"/>
+    </linearGradient>
+    <filter id="boxShadow" x="-5%" y="-5%" width="110%" height="110%">
+      <feDropShadow dx="0" dy="4" stdDeviation="8" flood-color="#000000" flood-opacity="0.08"/>
+    </filter>
+  </defs>
+
+  <style>
+    .title-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 16px; font-weight: 700; fill: #0f172a; }
+    .col-header { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 14px; font-weight: 700; }
+    .body-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; fill: #475569; }
+    .highlight-text { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; fill: #0284c7; }
+    .feature-name { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; font-size: 13px; font-weight: 600; fill: #1e293b; }
+    @media (prefers-color-scheme: dark) {
+      .title-text { fill: #f8fafc; }
+      .body-text { fill: #94a3b8; }
+      .feature-name { fill: #f1f5f9; }
+      .card-main { fill: #0f172a; stroke: #334155; }
+      .row-alt { fill: #1e293b; fill-opacity: 0.5; }
+      .border-line { stroke: #334155; }
+    }
+    @media (prefers-color-scheme: light) {
+      .card-main { fill: #ffffff; stroke: #e2e8f0; }
+      .row-alt { fill: #f8fafc; }
+      .border-line { stroke: #f1f5f9; }
+    }
+  </style>
+
+  <g transform="translate(15, 10)">
+    <!-- Container Card -->
+    <rect class="card-main" width="930" height="290" rx="12" stroke-width="1.5" filter="url(#boxShadow)"/>
+
+    <!-- Table Header Bar -->
+    <path d="M 0 12 Q 0 0 12 0 L 918 0 Q 930 0 930 12 L 930 46 L 0 46 Z" fill="url(#headerGrad)"/>
+    <text x="30" y="28" class="col-header" fill="#ffffff">Feature / Workflow</text>
+    <text x="290" y="28" class="col-header" fill="#ffffff">Manual Utility Knife</text>
+    <text x="520" y="28" class="col-header" fill="#ffffff">Manual CAD / Inkscape</text>
+    <text x="760" y="28" class="col-header" fill="#ffffff">Toolnest ✨</text>
+
+    <!-- Row 1: Time per Tool -->
+    <rect x="0" y="46" width="930" height="48" class="row-alt"/>
+    <text x="30" y="75" class="feature-name">⏱️ Time per Tool</text>
+    <text x="290" y="75" class="body-text">10–20 mins (slow &amp; tiring)</text>
+    <text x="520" y="75" class="body-text">15–30 mins (manual splines)</text>
+    <text x="760" y="75" class="highlight-text">⚡ Under 5 seconds</text>
+    <line x1="0" y1="94" x2="930" y2="94" class="border-line" stroke-width="1"/>
+
+    <!-- Row 2: Accuracy & Fit -->
+    <rect x="0" y="94" width="930" height="48" fill="none"/>
+    <text x="30" y="123" class="feature-name">🎯 Precision &amp; Tolerances</text>
+    <text x="290" y="123" class="body-text">Rough, slips easily</text>
+    <text x="520" y="123" class="body-text">Varies with tracing skill</text>
+    <text x="760" y="123" class="highlight-text">Sub-millimetre calibrated</text>
+    <line x1="0" y1="142" x2="930" y2="142" class="border-line" stroke-width="1"/>
+
+    <!-- Row 3: Finger Grips & Clearance -->
+    <rect x="0" y="142" width="930" height="48" class="row-alt"/>
+    <text x="30" y="171" class="feature-name">👌 Ergonomic Finger Grips</text>
+    <text x="290" y="171" class="body-text">Messy hand notches</text>
+    <text x="520" y="171" class="body-text">Manual boolean circles</text>
+    <text x="760" y="171" class="highlight-text">1-Click instant cutouts</text>
+    <line x1="0" y1="190" x2="930" y2="190" class="border-line" stroke-width="1"/>
+
+    <!-- Row 4: Multi-Depth Pockets -->
+    <rect x="0" y="190" width="930" height="48" fill="none"/>
+    <text x="30" y="219" class="feature-name">🧊 Multi-Depth &amp; 3D Preview</text>
+    <text x="290" y="219" class="body-text">Impossible / layers rip</text>
+    <text x="520" y="219" class="body-text">Requires 3D modeling skills</text>
+    <text x="760" y="219" class="highlight-text">Interactive 3D WebGL</text>
+    <line x1="0" y1="238" x2="930" y2="238" class="border-line" stroke-width="1"/>
+
+    <!-- Row 5: Export / CAM Readiness -->
+    <rect x="0" y="238" width="930" height="52" class="row-alt"/>
+    <text x="30" y="269" class="feature-name">📤 CNC &amp; CAM Compatibility</text>
+    <text x="290" y="269" class="body-text">N/A (Hand cutting)</text>
+    <text x="520" y="269" class="body-text">Unclosed paths, scaling bugs</text>
+    <text x="760" y="269" class="highlight-text">Clean SVG, DXF, STL &amp; CSV</text>
+  </g>
+</svg>

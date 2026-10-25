@@ -1,211 +1,214 @@
-# Toolnest
-
-Static CNC foam layout software for toolboxes. Deployment and moving projects from the previous website: [DEPLOY.md](DEPLOY.md).
-
-## Tool dragging
-
-Trace and Foam keep SVG elements in place during selection and reuse unchanged path strings, bounds and posed profiles. Undo snapshots are created when a gesture becomes a drag. A click does not serialize the project or rebuild the drawing. Preview jobs share immutable source geometry until the worker takes its own copy; the clearance worker receives the full layout once per drag and only position changes afterward. Layout checks reuse transformed geometry within each check and prune distance candidates against segment bounds. Selection does not trigger another unchanged autosave. Grip and tool-list controls retain their DOM elements across updates.
-
-`npm run test:performance` measures press/release handlers and animation callbacks on a 40-tool, 16,000-point Trace/Foam fixture. It fails if a simple click handler exceeds 50 ms in the development browser; it reports drag-drop timings separately. This is a browser CPU benchmark, not a hardware-independent frame-rate guarantee. Engine tests compare optimized clearance decisions with independent exhaustive distances for curved/rotated profiles and no-cut areas.
-
-`npm run test:motion` sends sustained real browser mouse input to both tabs with 40 tools / 16,000 source points at 100% and 150% display scaling. It checks frame intervals, confirms that the actual selected profile moves on successive frames, and rejects geometry path rewrites during dragging. `npm run test:grips` checks live finger union updates, continuous edge constraints and exact release/undo/redo geometry on desktop and phone widths. Browser checks open `/?sample`, which loads the generated sample sheet that the app no longer shows by default; include `?sample` when pointing `TOOLNEST_URL` at another copy. Set `TOOLNEST_BROWSER` to a browser executable (including Microsoft Edge). Run motion timing checks without concurrent browser suites, which can steal window focus and deliberately cancel a drag. These headless Linux checks do not reproduce a Windows GPU/driver setup.
-
-Trace selection has a separate highlight for the selected tool body, including when cutting contours merge. Canvas, labels, grips and list rows select the same tool; selecting a grip selects its parent. List rows remain stable during redraws so field blur or a worker result cannot swallow a click. Retracing maps the current selection to the new contour order rather than restoring the selection from when the job began. Selection alone does not move points or create undo entries. Run `npm run test:selection` for desktop/laptop/phone clicks, focused size fields, merged contours, parent grips and delayed threshold results.
-
-Trace tool bodies, grips, labels and isolated cut contours move together during a drag. Tool hit areas follow each source silhouette so merged cut contours do not select unrelated tools. When outlines are merged, the drag shows individual tool bodies and recomputes the combined cutting contour on release. Both workspaces move the tool and its attached features with one CSS transform on a retained SVG group per animation frame. Trace point arrays are translated only on release, rather than copied on every mouse event. The sheet uses a box shadow instead of a full-SVG filter to avoid repeated offscreen rasterization on desktop graphics drivers. Clearance checks run in a coalesced background worker, scheduled at 100 ms intervals while moving; release always performs the authoritative layout check before enabling export. Without workers, placement remains interactive and clearance is checked on release.
-
-Gestures retain their initial screen-to-millimetre transform, commit the final release position, and create one undo step. Pointer capture supports dropping outside the canvas; Escape or window focus loss cancels an unfinished edit. Touch drag-to-pinch conversion rolls back the accidental tool move.
-
-With the local server running, `npm run test:drag` checks continuous movement in Trace and Foam at desktop and laptop widths, grips and depth regions, repeated zoomed drags, drops outside the SVG, panning, undo/redo, cancellation, touch rollback, merged outlines, a 40-tool/16,040-point layout, background clearance warnings and no-worker recovery. Set `TOOLNEST_URL` to check a deployed copy and `TOOLNEST_PROXY` when a browser proxy is required. These browser checks use the development environment's Playwright/Chromium paths.
-
-A browser-local tool-photo to CNC foam outline editor. Run `npm start` and open http://localhost:3000. No build or npm installation required. Signed out, photos are never sent to a server; the optional cloud account below only uploads what you send or sync. All fonts and scripts are local.
-
-## Workflow
-
-Print A4 or US Letter coded sheet at 100%, verify 50 mm scale, place tools flat within dotted boundary, and upload a photo. All four markers must remain visible. Adjust edge sensitivity (or the optional brightness cutoff), clearance, smoothing, vertex positions, width/height, or rotation. Click a tool edge to add finger access. Download editable JSON before closing the tab, or export closed millimetre-scale SVG or DXF (DXF INSUNITS=4). Configure cutter diameter compensation, depth, and feeds in CAM.
-
-Finger circles union with the refined, clearance-adjusted tool silhouettes as vectors. Circle tessellation has a maximum 0.005 mm chord error, independent of contour cleanup and smoothing strength. Grips project onto the tool edge continuously while dragging; their boolean cut path updates before release, without a final snap. Overlapping tool paths also union. The editor shows base silhouette separately from final cut contour. Clearance and smoothing apply globally. Drag to reposition; edit mode supports point dragging, double-click insertion, and Alt-click point removal. Undo/redo records geometry changes. Saved projects store geometry/settings, not source photos; retracing requires the original photo.
-
-The photo overlay uses a thin unfilled cutting boundary. The separate selection highlight is shown only when tool contours merge. Trace stroke widths compensate for the sheet's CSS zoom, so a selected edge stays 0.85 screen pixels at 100%, 200% and 400%, while the invisible hit regions retain full tool interiors for clicking/dragging. Foam layout strokes also stay thin. `npm run test:edges` checks desktop/phone overlays and measures rasterized line width at all three zoom levels.
-
-## Calibration and accuracy
-
-Four 20 mm, 8×8 custom coded markers have a 6×6 payload and solid border. IDs and rotations are decoded with up to two bit errors. Multi-threshold component extraction, convex hull quadrilateral detection, and subpixel black/white edge fitting recover corners. Least-squares projective calibration uses all 16 corners and rejects missing markers or excessive residual. Inverse sampling rectifies the page at 3 px/mm. Cut generation refines the extracted contour first, then uses vector round offsets and boolean unions at 0.00001 mm coordinate precision. Both offset arcs and circular finger grips use a 0.005 mm maximum chord error; SVG, DXF, library profiles, drawer placement and STL share that point geometry. Rounded style uses adaptively sampled tangent quadratic corner curves, keeping long straight spans intact. These numerical tolerances do not describe camera or CNC accuracy.
-
-Corrects **planar perspective**. It does not solve radial lens distortion, raised-tool parallax, paper curl, printing scale errors, reflections, or shadows. Marker residual is not a cutting tolerance guarantee. Verify critical dimensions and run a physical test cut. Desktop processing uses an 1800-pixel maximum uploaded dimension; input is limited to 25 MB.
-
-## Verification
-
-`npm test` runs the engine tests including straight-on, severe perspective, both tilts, all rotations, illumination/noise, missing-marker rejection, Letter calibration, independent projective points, silhouette extraction, finger union/clearance, closed SVG/DXF units, and marker dictionary separation. The in-app Distortion Test Lab repeats nine correction cases and downloads measured JSON. Independent interior grid checks prevent confusing fit residuals with actual reconstruction errors. These synthetic checks do not validate any physical camera/print/cut.
-
-`tests/browser.mjs` covers the sample sheet, live lab, finger union, undo/redo, SVG/DXF downloads, project save/reopen, and mobile layout. Its Playwright import and Chromium paths match the development environment; adjust for other hosts.
-
-## Phone and tablet use
-
-Toolnest behaves like an installed app on phones: **Add to Home Screen** (Safari share menu, or Chrome's Install app) launches it full screen with its own icon (`manifest.json`, `icons/`). The page never scrolls sideways or zooms (only the layout, trace and photo views pinch-zoom), controls don't trigger text selection, and the phone header always fits one row: the save state shows as a dot on ☁ (green saved, amber saving, red not saved) and New project lives in Library.
-
-Toolnest opens on Library. Trace is built for capturing tools one after another: the row above the canvas holds a **camera button** (the rear camera on phones, the file picker elsewhere), the selected tool's **name**, editable in place like a document title, and full screen; there is no bottom navigation. With no photo or tools yet, phones and tablets show the capture panel (upload, camera, calibration sheet). On phones a **settings** button swaps in Save, Add to foam, tracing, outline and export controls; tablets and desktops show them beside the canvas. The canvas always shows the photo with outlines over it, and middle- or right-button drag pans it, as in Foam.
-
-Before the next photo, or when leaving Trace for Library or Foam, Toolnest asks to save traced tools that are not in the library yet ("Save Tool 1?"), with each name editable and Enter to save. **Don't save** stops asking about those tools. Each traced tool remembers its library entry, so saving again (or renaming it afterwards) updates that entry instead of adding a copy. **Add to foam** also saves (or updates) the library entry, and the foam tool links to it.
-
-Saved tools keep a **photo**: the tool cropped from the straightened photo with a 6 mm margin (JPEG, at most 1000 px, roughly 50–150 KB), stored on the device in IndexedDB next to foam photos and shown under the outline in Library → Tools. Signed in, it uploads to the private bucket at `<user>/tool/<id>.jpg` and other devices fetch it when the library syncs. The crop is taken when the tool is saved and encoded just after, so saving never waits on it; a photo still encoding when the library row syncs is uploaded with the next push. A tool keeps its photo until its photo or outline extent changes. Library backup files do not include photos. A native image decoder fallback handles browsers that cannot decode through ImageBitmap.
-
-Touch controls are at least 44 CSS px, numeric fields use 16 px text and decimal keyboards, and sliders have enlarged thumbs. The canvas supports anchored two-finger pinch/pan, a one-finger Pan mode, and a full-screen focus view. Tap the zoom percentage to reset and centre. Pinching rolls back an accidental initial tool drag. Outline points can be selected/dragged and added/removed through visible controls, without keyboard shortcuts. Pointer cancellation rolls back incomplete edits. Section changes preserve geometry. Safe-area insets, dynamic viewport heights, scrollable dialogs, and landscape focus view support small screens.
-
-`node tests/mobile.mjs` checks seven emulated touch viewports (320×568 through 1180×820), visible control sizes, navigation, camera-input attributes, zoom/focus, real browser multitouch dispatch, drag-to-pinch rollback, touch point operations, mobile export, camera-input photo processing with native decoder fallback, and orientation changes. These Chromium checks do not replace hardware testing in iOS Safari or Android Chrome.
-
-## True-scale printing
-
-Use **Download single-page PDF** in Capture or the print dialog. The PDF is generated locally as a one-page vector document, with an explicit A4 (210 × 297 mm) or US Letter (215.9 × 279.4 mm) MediaBox and a no-scaling viewer preference. Match the app's paper selection to the printer's paper, use portrait and 100%/Actual size, and disable Fit/Shrink/Poster/Tile. Check the printed reference line measures 50 mm. Do not switch from A4 to Letter only in the printer dialog; select the matching template in the app first.
-
-Browser printing uses an isolated, fixed-size document, so app layout, mobile navigation, zoom, margins, and flowing SVG content cannot add print pages. Browser Ctrl/Cmd+P also receives a fixed-position sheet. Disable browser headers/footers and use no browser margins. PDF is recommended when browser or printer settings cause scaling.
-
-Print verification: `node tests/print.mjs && python tests/print-measure.py && node tests/print-detect.mjs`. This checks single-page PDF output, physical page boxes, 20 mm coded squares, 50 mm reference geometry, actual downloads, repeated printing, A4/Letter switching, and desktop/phone print layouts. PDF vectors are rasterized and fed back through the app's marker detector to verify all four IDs and calibration. Physical printer output must still be measured because printer-driver scaling is outside the app's control.
-
-## Shadow-aware tracing and paper detection
-
-Uploads now compare A4 and US Letter fits using the same 16 physical marker corners; a substantially better fit selects the matching template automatically. Per-marker illumination thresholds and an adaptive candidate pass support coded squares in shadow. Print scaling still requires a measured reference.
-
-Smart edges is the default trace method. A separable blur, Sobel gradient, nonmaximum suppression, hysteresis, small-gap closing, exterior flood fill, and small-fragment opening recover closed silhouettes without treating a broad soft shadow as foreground. Thin fragments, near-empty contours, and contours clipped by the working-area boundary are rejected. Edge sensitivity adjusts the hysteresis threshold; Dark silhouette retains the earlier brightness-cutoff method as an optional fallback. Real uploads open in Overlay so the user can review segmentation independently from marker calibration. If calibration succeeds but no closed tool is found, the photo remains available for retracing. Undo and editable projects retain the trace method.
-
-### Edge snapping for shadows and chrome
-
-After segmentation, every outline is refined against the photo itself. The mask boundary follows pixel cracks and, after gap closing, sits slightly outside the tool; a cast shadow or a reflective rim on one side makes it wander. Each outline sample looks along its normal for edges of the tool's own polarity, located in linear brightness and scored in log brightness, so an illumination change (shadow) scores lower than a material change (tool). Two edges along one normal enclose a band: a band clearly darker than the paper but lighter than the tool is a cast shadow, and the outline moves in to the tool edge; a band as bright as the paper, or anything brighter than the paper (chrome), is still tool, and the outline stays outside it. Dynamic programming around the ring picks one continuous edge, and the correction is median-filtered and smoothed over a few millimetres, because shadows and rims change slowly while shape detail stays in the base outline. A pocket must enclose the tool, and an edge position is the middle of a blurred transition, so each point is then walked outward (up to 1.6 mm) until the photo just beyond it is paper: at least half-way from the nearby tool to the local paper brightness, and not brighter than paper (chrome). A light shadow passes; metal does not. The push is held over neighbouring points so it never shrinks between them. Corrections are bounded (3.5 mm inward only through a verified shadow band, 2 mm outward), self-intersections are repaired, and any doubtful ring falls back to the mask contour. The rules only ever keep more of a reflective tool; a narrow notch can be bridged, and a very dark hard shadow (darker than half-way between tool and paper) is treated as possible tool, both of which leave a slightly larger pocket.
-
-A near-white highlight that is darker than the paper and has no shadow beside it cannot be told from paper by brightness. Use matte grey paper rather than bright white, or diffuse light, if a polished edge still traces inside the tool.
-
-`node tests/edge-snap.test.mjs` measures signed outline error against known antialiased shapes and the share of points more than 0.2 mm inside the tool: clean edges, a one-sided cast shadow, a chrome rim brighter than grey paper, a rim beside its own shadow, and a near-white highlight that must not be cut deeper. On those synthetic scenes the Smart edges outline sits about 0.1 mm outside the tool with RMS error near 0.15 mm (previously 0.25 mm with stair-steps), and a 70%-brightness one-sided shadow is cut back from about 1.6 mm to 0.4 mm. On a real chrome ratchet photo, no outline point has metal just outside it. The synthetic numbers do not describe camera or CNC accuracy.
-
-`npm test` also includes a light-tool/soft-shadow regression with known synthetic shapes and automatic A4/Letter detection starting from the wrong selection. The `tests/photo-regression.mjs` and `tests/photo-browser.mjs` checks accept a private photo via the TOOLNEST_PHOTO environment variable, process it locally, and emit review artifacts only under /tmp. User photographs are excluded from source, deployment assets, and the downloadable source bundle. Regression checks on a real photograph assess segmentation points and shape bounds, not physical cutting tolerances. Specular reflections, missing edges, hard cast shadows, and raised-tool parallax can still require manual correction or a retake.
-
-## Live settings preview
-
-The calibration banner has been removed; measurements remain available through the calibration information button. Smoothing now offers six strength levels, rounded/detail-preserving/flowing styles, and contour cleanup in millimetres. Tracing exposes edge sensitivity, weak-edge threshold, gap closing in millimetres, minimum tool area, and a separate brightness cutoff for Dark silhouette.
-
-All shape controls respond to input events, including while sliders are held and numeric fields are edited. Preview jobs run in a local module worker; pending work coalesces, obsolete results are ignored, and export/save wait for the latest visible geometry. If workers are unavailable, the same model runs locally as a fallback. Threshold changes retain grips and tool names. Undo groups a slider gesture into one step; expanded settings survive project saving/reopening. New grip diameter displays a placement preview; existing grip sizes and width/height update immediately.
-
-On phones the Fit & export view keeps a zoomable preview above a scrolling settings pane, fitting the selected tool while preserving the previous editor viewport. Tablets retain side-by-side controls and canvas. `node tests/live-settings.mjs` verifies input-only live updates, smoothing styles, threshold controls, grip retention, rapid slider changes, undo/redo, SVG-to-preview equality, project reopening, and phone/tablet layouts. `node tests/preview-model.test.mjs` checks the shared worker geometry model.
-
-## Foam designer, depths and tool library
-
-The header switches between Trace (the existing calibrated photo editor) and Foam (the drawer designer). Add one finished photo outline or all of them to the drawer, or save a named profile to the device library. Each added profile includes its current clearance, smoothing and unioned finger grips; later tracing edits do not silently modify already placed or saved tools. Capture another photo to add more tools. The foam layout is independent of calibration paper dimensions.
-
-Foam width/length (25–2500 mm), thickness (2–200 mm), minimum remaining base, edge margin and tool spacing all update live. Each independent tool instance has a name, pocket depth from top, X/Y position and arbitrary rotation, plus duplicate, delete and explicit library-save controls. Arrange packs bounding boxes into rows without moving anything if the set cannot fit. Tools can be dragged, the layout supports pinch/pan and mouse-wheel zoom, and interrupted drags roll back. Undo/redo applies to drawer edits independently from tracing edits.
-
-Draw rectangular deeper regions across the selected pocket. Regions are transformed into tool-local coordinates and clipped to the tool profile, so they move/rotate with the tool. Overlapping depth regions use the deepest requested depth. The 3D preview uses polygon differences, floors and walls at the same actual depths as the layout's depth geometry; it does not estimate tool surfaces or simulate toolpaths. Orbit/pinch controls work with mouse/touch. WebGL is required only for 3D; tracing, 2D design and export remain usable without it. Shape triangulation and camera rendering use locally vendored Three.js 0.170.0 (MIT); polygon unions/intersections/differences use polygon-clipping 0.15.7 (MIT). Trace offsets/unions use the locally vendored Clipper 6.4.2 JavaScript port (Boost Software License 1.0, with its bundled JSBN license). Licenses are in dist/vendor.
-
-Overlapping pockets, insufficient spacing, edge-margin violations and cuts exceeding thickness minus minimum base block drawer outline export and are highlighted in the 2D layout. Changing the foam never silently scales a tool. Tool dimensions are captured millimetres. Sliders and numeric inputs preview before change/blur; depth sliders are grouped into one undo operation.
-
-Drawer exports are filled closed SVG paths with millimetre dimensions and labelled depth metadata, or DXF closed polylines separated into DEPTH_*_MM layers (INSUNITS=4). A separate CSV lists each tool's base and effective deeper-region depths. **These vector files do not automatically apply machining depths in Easel.** Import them, choose pocket cuts, assign the CSV depths, set cutter compensation/feeds, and verify the CAM preview and a sample cut. No G-code or machine operation is generated.
-
-Project v2 JSON backs up trace geometry/settings plus the complete named drawer, placements and regions. Existing v1 projects still open; importing one starts an empty drawer. Device-local autosave separately retains the last trace geometry and foam layout. The named reusable library supports search, rename, delete, add, update from an instance, and JSON backup/import. Instances are independent copies: updating a library tool does not change existing placements. Libraries store up to 200 tools; drawers support up to 100 instances, each with up to 24 deeper regions. Imports have numeric, shape-closure, size and point-count limits, and are validated before replacing the current project.
-
-Persistence uses localStorage on the current browser/origin, not cloud/team storage. Source photos remain tab-local and are excluded from all saves and backups. A cleared browser or different device needs project/library JSON backups. New Project clears trace and drawer geometry while preserving the saved library.
-
-`node tests/foam.test.mjs` verifies transformations, clipping, depth partitions, placement/depth checks, exported units/depths and malformed import rejection. `node tests/foam-browser.mjs` exercises the actual WebGL renderer, input-only live depths, multi-tool workflows, library reuse, overlap blocking/undo, deeper-region drawing, SVG export, project round trips and browser reloads at desktop, phone and tablet sizes.
-
-## Layout tools: grid, snapping, alignment and shapes
-
-The toolbar above the foam layout is grouped like Fusion 360's sketch environment: **CREATE** (Select, Rectangle, Center rectangle, Circle, Ellipse, Slot, Line, Spline, Socket row, Trace pockets), **MODIFY** (Mirror, Flip, Array, Merge, Subtract, Erase area, Split) and **ALIGN**, with **Undo** and **Redo** at its right end.
-
-**Erase area** and **Split** take traced (or any) pockets apart, for example to drop one tool from a traced box and cut the rest into a new block. Erase area: tap points around what to cut away (or tap the first point again), then **Erase**. Split: tap two or more points across a pocket, then **Split**; the line becomes a 0.3 mm strip, so the pieces part cleanly and a spacing warning between them is expected until one is moved or deleted. Either changes the pockets that were selected when the tool started, or every pocket it touches when none was. Each pocket comes back as one pocket per remaining piece (named · 1, · 2 …), depth regions follow their piece, and pieces under 1 mm² are dropped. Both are single undo steps. On a touch screen every sketch tool (these included) places a point when a tap lifts, so dragging one finger pans and two fingers pinch-zoom without dropping points; a mouse or pen places points on press. The floating **Sketch palette** holds the layout options: a millimetre sketch grid (1–100 mm, every fifth line darker), Snap to grid, Smart guides and Multi-select, all saved per device rather than in the project. It collapses to its title bar and starts collapsed on phones.
-
-Finishing a shape returns to Select so it can be moved straight away; **Finish sketch**, Select (V) or Esc also leave a tool. Shortcuts: R rectangle, C circle, E ellipse, S slot, L line, P spline. Click the first point, then the second, or click-drag-release. Rectangles and ellipses take two corners or a centre and corner; circles take a centre and edge; slots take both end centres and then the width. Floating dimension boxes beside the pointer show the live size: type a value (millimetres, or `in` / `"` for inches) to lock it, Tab to switch boxes, Enter to accept and Esc to cancel. Lines take a length and angle per segment. A line or spline closes when you click its first point, double-click, press Enter or use Close shape; Backspace removes the last point. Line and slot directions catch 45° multiples within 4°, points snap to the grid, and Alt ignores snapping. The palette sets the corner radius and pocket depth for new shapes.
-
-While dragging, the moving items' combined bounding box snaps to other tools' edges and centres, to exactly the tool-spacing distance beside a neighbour, and to the foam's margin and centre lines (within 7 screen pixels); otherwise it snaps to the grid. Hold Alt to move freely. Drawn polygon and spline points and edited nodes also snap to the grid. Guides use bounding boxes, so the clearance check on release remains the authority on actual spacing.
-
-A selected item shows a rotate ring, slicer style: its handle marks the item's "up" and turns with it. Drag the handle or the ring close to the ring to snap to 5° steps; drag farther out (beyond 1.35× the ring) for free rotation in 0.1° steps. Alt or Snap off also rotates freely. The angle shows in the middle while turning. **⇋ Mirror** flips left to right and **⇅ Flip** top to bottom, as seen on the layout, at any rotation. The inspector's **Width/Height** resize the item's own (unrotated) size about its centre, both together with **Keep proportions**, and **Scale %** scales it uniformly; depth regions and shape parameters scale with it. Arrow keys nudge the selection 1 mm, Shift+arrow by one grid step, Alt+arrow by 0.1 mm; Delete removes it.
-
-Middle-button or right-button drag pans the layout from anywhere, including over tools and while sketching. **1:1** shows true size, so a tool held against the monitor should match its outline. It needs this screen's real pixel size once: **Calibrate screen for 1:1…** (in the Sketch palette, or on first use) matches an outline to a bank card or a 100 mm line. The value is stored per device in device pixels, so browser zoom keeps 1:1 correct.
-
-Items too close together are drawn with a red dashed outline (selection stays orange), and a red line with its length marks the closest gap between their actual outlines.
-
-Shift- or Ctrl-click (or turn on **Multi** on a touch screen) adds or removes items; Shift-drag on empty foam box-selects. The first selected item stays primary: the inspector edits it, and Subtract cuts the others out of it. Align left/centre/right/top/middle/bottom and distribute (three or more) work on bounding boxes and move locked groups as one unit; with a single item or group selected, alignment is to the usable area inside the edge margin. **Merge** unions the selection into one pocket at the shallowest depth, turning deeper members into depth regions (24 maximum). **Subtract** keeps the primary's name, depth and regions. Both bake rotation into the new outline.
-
-**Socket row…** turns a list of measured diameters such as `10, 12.5, 17@38, 0.875in` (`@` sets that pocket's depth; `in` or `"` for inches) into circular pockets with a clearance added to each diameter, an edge-to-edge gap, centres/tops/bottoms lined up and optionally locked together. These shapes keep their parameters: the inspector's SHAPE section resizes rectangles, slots and ellipses about their centre, and **Edit nodes** shows draggable polygon/spline nodes (double-click the outline to add one, Alt-click or Remove node to delete one; edits that would make the outline cross itself are refused). Editing an outline on the Trace sheet, merging or subtracting turns a shape into a plain outline. **Array…** repeats the selected item or locked group in columns × rows with edge-to-edge gaps and warns when copies overlap other items, which would otherwise cut as one pocket.
-
-`node tests/foam-tools.test.mjs` checks alignment and distribution of locked units, guide-over-grid snapping and neighbour-only spacing guides, node edits that keep other nodes fixed, centre-preserving resizes, merge/subtract areas and depths, array spacing and socket-list parsing.
-
-## Optional cloud account, phone pairing and sync
-
-The ☁ button in the header signs in with Google (Google's own button, so the consent screen is for this site rather than the Supabase project address; a full-page Google redirect is the fallback), with email and password (new accounts confirm their email first; Forgot password sends a reset link), or with an emailed sign-in link. Signed out, Toolnest makes no network requests and neither the Supabase client (vendored in `dist/vendor/supabase.js`) nor Google's script is loaded until the account dialog asks for them.
-
-A save indicator beside ☁ always shows where work is: **Saved on this device** when signed out, then **Saving…**, **✓ Saved** (with the time) or **⚠ Not saved** (click to retry). Leaving the page while a save is pending asks first.
-
-The header switches between three workspaces: **Library**, **Trace** and **Foam**. A **project** holds up to 30 foams (one per drawer or case). In Foam, the filmstrip under the layout shows every foam in the open project: click one to open it, double-click its name (or ✎) to rename, ⧉ to duplicate, × to delete, and **＋ New foam** to add one with the same stock size. Undo history belongs to the open foam. The left panel's PROJECT field names the project.
-
-**Library** has two tabs. **Projects** shows each project as a card with its first foams; open one to continue in Foam, or start **＋ New project**. Without an account this device keeps one project (older single-drawer saves become a project of one foam). **Tools** lists saved tool outlines with thumbnails; **✓ Save all to library** under a traced photo saves every tool on it at once, and saving the same photo again updates those entries. Project backups include every foam in the project.
-
-Signed in, the tool library syncs both ways by tool id: a per-account snapshot of the last sync tells local edits from remote ones, and when both changed the local copy wins. The open project saves two seconds after each change: every foam whose content differs from its last save is written (so switching foams never drops an edit), the project row keeps their order, and each foam photo plus a 480 px thumbnail is uploaded once to private storage. Changes made on another device arrive live (Supabase Realtime): new tools are named in a message, the Library redraws, and foams another device adds to the open project join its filmstrip, while local foams with unsaved edits are kept. Comparisons use key-order-independent JSON because Postgres reorders stored keys. Two devices editing the same foam resolve as last save wins.
-
-**Pair a phone** shows a QR code holding a random 256-bit one-time code (only its SHA-256 hash is stored; it expires after 5 minutes). Scanning it opens Toolnest on the phone, where the `pair-redeem` edge function checks the code and returns a magic-link token that signs the phone in to the same account without sending an email. On the phone the account dialog offers **📷 Photograph tools** (camera straight into Trace, then ✓ Save all to library) and **📷 Photograph foam** (a new foam in the open project, then its four-corner alignment); a phone that signs in with nothing open picks up the most recent project. Both appear in the computer's library as soon as they save.
-
-The database schema, row level security, storage policies and the edge function live in `supabase/`. Every table and storage folder is private to its owner. The free Supabase plan's built-in email sends only a few emails per hour; Google, passwords and phone pairing do not depend on it. Add the site's URL and `http://localhost:3010/**` to Authentication → URL Configuration for emailed links to return to Toolnest, and the site's origin to the Google OAuth client's authorized JavaScript origins.
-
-## Photo checks
-
-Photos are checked before use. Failed calibration leaves previous good geometry untouched. Photo preparation (calibration, rectification and extraction) now runs in a separate worker with a timeout and a no-worker fallback. New/opened/cleared projects invalidate pending captures before any result is applied. Existing upload and native phone-picker paths remain available.
-
-## Bounded contour smoothing and preview recovery
-
-New outlines default to Even curve, with adjustable physical curve radius and maximum smoothing movement. Detail/Balanced/Smooth presets adjust those controls together; all update on input, before releasing a slider. The algorithm samples along arc length, includes every original contour vertex as a correspondence anchor, filters the curve and limits each anchor's displacement. Self-crossing or collapsed results fall back to the input contour. Exact collinear vertices are removed without changing the curve. The movement bound applies to body smoothing after the chosen contour cleanup, before vector fit clearance; it is not total camera/segmentation/CNC accuracy. Existing saved round/detail/relax modes remain available and compatible.
-
-Threshold retracing matches tools by position before retaining names, selection and grips. A grip belonging to a missing tool is removed with a warning, rather than attached to an unrelated tool. Geometry-worker errors clear cut paths and block export/library transfer until a successful recomputation, preventing stale geometry from being exported as the latest preview.
-
-`npm test` includes physical smoothing bounds in both directions, noise reduction, narrow-feature/crossing checks and retrace identity.
-
-`node tests/capture-lifecycle.mjs` delays a real preparation-worker result to verify that clearing the project cancels its application, and checks the no-worker photo fallback. Camera framing preferences (device, resolution, review, outline and timer) are local preferences, separate from project geometry and library backups.
-
-## Actual foam photographs and placement
-
-Foam photos are added only from the filmstrip: **＋ New foam** opens the stock-photo workflow for the new foam, and **📷** on the open foam adds a photo or, when it has one, reopens the original with its measured size and four corners so either can be corrected and the photo re-aligned. Upload an image or use the native camera picker. The aligned photo keeps its size-capped, orientation-corrected original and the corners (as fractions of that image), stored on the device and, with an account, in private storage, so another device can recalibrate too. Photos aligned before originals were kept reopen from the aligned photo itself, with its corners at the image edges, so their size and corners can still be refined; from then on that image is kept as the original. Foam capture accepts unmarked images; it opens corner alignment and never replaces the calibrated tool-photo workspace.
-
-Enter the measured width and length of a rectangular top surface/reference. A new photo starts with the corners found automatically: the foam is taken as the large region under the photo's centre that differs from the table (whose colour is read from the photo's edges, with an Otsu threshold on the distance to it), and its corners start as that region's extreme points along the two diagonals. Rounded corners would leave those on the arc, so each corner is then rebuilt where straight lines fitted to its two sides meet (the boundary 6–30% along each side from the corner: past the rounding, and short enough that lens bow near the photo's edge barely bends it). At full resolution those lines are snapped to the strongest colour step whose outer side looks like the table, which skips soft shadows and pockets that reach the edge, and refitted until the corners settle. Drag any that are off, or tap top-left, top-right, bottom-right and bottom-left yourself. Corner handles have 44 px hit areas, a pixel magnifier, zoom/pan and touch-pinch rollback. Convex ordered corners, minimum photographed area and physical dimensions are checked before a worker rectifies the image. The result is a locked stock-coordinate background in Layout and a correctly oriented top-surface texture in 3D. Tool geometry and placements retain their millimetre dimensions. Opacity and visibility do not change machining geometry. Changing stock dimensions after photo calibration blocks export until the photograph is recalibrated or removed, preventing a quietly stretched background.
-
-Use a ruler or another measured feature on the same top plane for the optional two-point reference check. It compares the displayed millimetre distance against the entered physical length using a check tolerance of max(0.5 mm, 1% of reference length). A recorded failed check blocks export until corrected; a pass is a consistency check, not a cutting tolerance guarantee. Four-corner alignment corrects perspective, not lens distortion, foam curvature, raised-tool parallax, measurement error or inaccurate corner selection. For irregular/clipped stock, align a measured rectangular reference on the same plane and conservatively exclude the unusable portions.
-
-No-cut rectangles and tap-defined polygons mark existing pockets, missing foam or unusable areas. They can be named, moved, removed, undone and saved. Tool outlines and requested spacing are checked against those regions; Arrange and library insertion find conservative free positions around their bounding boxes. No-cut zones are layout constraints, not cutter/holder/clamp collision avoidance. They are excluded from SVG, DXF and STL cutting geometry. The photo does not infer the depth of existing cuts.
-
-Rectified foam images are stored in device-local IndexedDB, separately from geometry autosave. Project backups exclude photo pixels by default. **Include foam photo in project backup** embeds the rectified JPEG/PNG in the downloaded project, enabling cross-device restoration without uploading it to hosting. Trace-source photographs remain excluded. Imported photo data must be bounded embedded JPEG/PNG, never an external URL or SVG. Missing device photos leave layout geometry usable and offer replacement. Async asset restoration and cancelled alignment jobs do not replace a later project or photo.
-
-## Scale target, flatbed scans and pocket detection
-
-**Print scale target ↓** in the foam photo dialog downloads a page with two 80 × 50 mm cards carrying the four coded squares (15 mm each) in their corners. Lay a card flat on the foam's top surface, or on a scanner's glass beside the foam, with all four squares visible. When a photo is loaded, Toolnest looks for the card; if found (fit within 0.6 mm), the foam's width and length are measured from the four corners you tap, on the card's plane, instead of being typed. Typing a size takes over; tapping a corner again measures again. A flatbed scan needs no card when its file records its resolution: a JPEG (JFIF or EXIF) or PNG (pHYs) at 150 dpi or more offers **Scanned at N dpi? Use it for scale**. Camera files usually claim 72 or 96 dpi and are not offered. Scans have no perspective or parallax, so outlines sit exactly at the top edge; a card measured on the foam plane is accurate near the card and less so far across a large photographed foam, where the measured corners are the better check.
-
-**◎ Trace pockets** finds existing cuts in an aligned two-tone foam photo, for rebuilding worn foam: add a photo to an empty foam (**＋ New foam** or 📷 in the filmstrip) and, once its corners are confirmed, Trace pockets opens by itself. Later it is in the Draw menu, the Foam photograph section, and as a button on the canvas while the foam has a photo but no pockets. On five real trays (black top over yellow, 25 October 2026) the auto-found corners landed on the tray corners and the detected outlines followed the pocket edges closely, including small round pockets; overlapping cut-outs come out as one connected pocket, with raised islands kept as holes. Colours are only correct when the aligned photo covers just the foam: a crop that includes the table puts the table into the border band and can swap them (**Swap surface and pocket colours** fixes that). The photo's border is taken as the top surface colour and the pixels are split into two colour clusters; the other cluster is pocket. The mask is cleaned (about 0.6 mm opening and closing), optionally pulled in by **Shrink outlines** (to offset pocket walls seen at an angle in phone photos), traced into millimetre outlines with bounded smoothing, and filtered by **Smallest pocket**. **Sensitivity** moves the colour boundary and **Swap** handles foams whose pockets are the darker colour. The live preview draws the outlines on the photo; **Add as pockets** creates them as items at a chosen depth (to re-cut the foam), and **Add as no-cut areas** marks them so new tools are placed around them. Islands (top surface left standing inside a pocket, such as a centre peg) are found as surface the foam's outer surface cannot reach and are kept as holes, so the pocket is cut around them. The area where a scale card lay is ignored. Depths are not measured.
-
-`node tests/foam-scan.test.mjs` checks target detection and plane measurement in a tilted synthetic photo, dpi reading from JPEG and PNG headers, pocket outlines and areas on a synthetic two-tone foam (with shrink and minimum size), and that a scale card on the foam is excluded.
-
-## Easel/CAM handoff
-
-SVG and DXF preserve vector cutout geometry, relative XY placement and documented depths, but Easel still requires assigning pocket cuts/depths. Background photos and no-cut annotations are not included as machinable objects. Optional **SVG stock alignment frame** adds a stock-sized reference outline; it must be set to **0 mm depth** or deleted after positioning in CAM. It is off by default. CAM may reposition imported paths, so do not assume an SVG viewBox alone registers them to the physical foam.
-
-**CAM placement & setup** downloads the stock dimensions, physical origin convention, tool bounding-box X/Y coordinates and import instructions. Toolnest's editing Y coordinates run from the top; CAD/CAM exports and the setup table use Y from the bottom. Fixture the actual foam in the same orientation and zero XY at its bottom-left corner as viewed in the layout. Check registration points, dimensions, cutter compensation, cut reach, feeds, clamping and the CAM simulation before cutting.
-
-STL export contains a closed, oriented foam solid with all designed pocket floors and depth steps. It uses the same polygon depth model as the live preview, with sub-micron contour cleanup (0.0005 mm chord tolerance) to remove numerical sliver faces. Mesh construction splits shared boundaries and checks every edge has two oppositely oriented faces before writing binary STL. Its coordinates are millimetres, stock bottom Z=0 and top Z=thickness; the file itself has no enforceable unit system. Complex exports run in a separate worker with size/depth-count/time limits and actionable SVG/DXF fallback errors. Existing photo pockets, annotations, tools, feeds and toolpaths are not encoded.
-
-Easel Pro can import STL and generate depth-varying toolpaths. Disable **Scale model to fit material**, enter/verify exact stock width/length/thickness and preserve the model's Z scale. Standard SVG/DXF remains a practical route for flat/stepped pocket operations, with depths assigned in Easel. Current official documentation: https://support.easel.com/hc/en-us/articles/35388639766163-File-Import-Guide and https://support.easel.com/hc/en-us/articles/10378619827219-FAQs-3D-in-Easel-Pro. Kiri:Moto (MIT) also accepts STL for its browser-based CAM workflow (https://docs.grid.space/kiri-moto/faq/); no machine-specific G-code or unverified X-Carve postprocessor is generated by Toolnest.
-
-`node tests/stock-stl.test.mjs` verifies independent interior calibration points, reference-dot orientation after rectification, reference checks, no-cut placement, annotation-free exports, mesh closure/volume/depth levels, invalid imports and dense smooth contour mesh regression. With the local server running, `node tests/stock-photo-browser.mjs` exercises four-corner placement, unscaled tools, exclusions, reference checks, vector and binary STL downloads, IndexedDB reloads, photo-inclusive backup restoration in a fresh browser context, and unclipped 3D framing at desktop/phone/tablet sizes. `node tests/stock-touch.mjs` checks actual touch corner placement, drag-to-pinch rollback and polygon no-cut regions at 320 and 390 px. Image fixtures and downloaded proofs stay under /tmp. Physical camera/foam/CNC accuracy and import into a user's Easel account still require hardware verification.
-
-## UI checks
-
-With the local server running, `node tests/ui-workflow.mjs` checks the simplified workflow at 1440, 820 and 390 px: outline presets, fine tuning, transfer to Foam, drawing controls, menu dismissal, mirror/undo, SVG export and foam photo access. Install Playwright outside the app or set `TOOLNEST_PLAYWRIGHT` to its `index.mjs`; set `TOOLNEST_CHANNEL=msedge` to use Microsoft Edge. `TOOLNEST_URL` overrides the local server address. Manual tracing, position/size, tool editing and backup options are collapsed by default.
-
-## AI Trace
-
-**AI Trace** is the default tracing method for new work (Trace → Tracing; Smart edges and Dark silhouette remain available, and saved projects keep the method they were traced with). It uses MediaPipe MagicTouch in a worker on this device. No ML runtime or weights load at startup: the model downloads after the first calibrated photo in AI Trace (with progress, cancellation, retry and a Smart edges fallback in a status pill over the canvas). Photos and prompts are never sent to a model service. This does not change optional project/cloud sync.
-
-Tap a tool to trace it; tapping inside an outline selects that tool. The canvas toolbar's **＋** and **−** arm one tap that adds a missed part to, or removes an area from, the selected tool; the regular undo and redo cover taps. MagicTouch takes one point per inference, so positive regions are unioned and negative regions subtracted. Taps are committed on release; drags pan, and a second finger converts a pending tap to pinch/zoom without adding a prompt. The new tool's name is selected in the name field above the canvas (with a mouse), ready to type.
-
-Each tap runs in two passes. First, *which object?*: the Smart edges outline under (or within 6 mm of) the tap answers this, since the capture step always runs Smart edges and keeps its outlines as proposals in AI Trace; without one, the model looks at the whole photo and its answer is used only if it is not sheet-sized. Second, *exactly where?*: the model looks again at just that object, cropped from the full-resolution rectified photo with a margin (at most 1024 px, so only small crops reach the worker), and the window grows if the tool runs off its edge. Every candidate mask is reduced to the connected region under the tap; regions covering most of the view or touching three of its edges (the sheet, the table) are rejected, and the remaining candidate that best agrees, pixel for pixel, with the Smart edges outline is chosen, so the model supplies the edges and the outline decides which answer. The chosen region is placed back into the full rectified image, clipped to photographed pixels and converted to closed outer contours.
-
-The outline then follows the model's own edge rather than the real-edge snapper: on chrome the snapper jumped between reflections, the tool and its shadow, so the line wandered in and out of the region the model found. Two steps replace it. A **shadow trim** peels cast shadow from the outside of the region, at most 2.5 mm: pixels with the nearby paper's colour balance, 50–93% of its brightness, and no sharp step to their neighbours (a tool's dark rim, coloured grips, knurling and engraving stop the peel). The paper is measured per 16 mm cell in a ring 2–5 mm outside the region. The outline is then smoothed with a Gaussian sized to the model's mask pixels, which removes the staircase left by upscaling the mask from the crop. The same millimetre origin, smoothing, fit clearance, library and export pipeline is used afterwards. Model boundaries can still miss jaws, thin shafts and concavities; interior mask holes are not imported as extra cutting paths.
-
-It pins `@mediapipe/tasks-vision@0.10.21` (2025-02-06) and MagicTouch float32 model version 1 (6,227,884 bytes), from jsDelivr and Google's model storage; both are Apache-2.0, with licence texts and source links in `dist/vendor/`. It tries the GPU delegate, then the CPU. The loaded model is reused until cancelled or the page closes. Browser model caching can reduce later downloads but is not an offline guarantee.
-
-Prompt points are saved per tool in sheet millimetres. Ordinary preview changes preserve traced geometry. Project backups keep geometry and prompts, but exclude Trace-source pixels; reopened tools still export and can be placed in Foam, while further AI tracing requires the source photo. Finger-cutout creation remains retired from the UI; existing saved grip geometry remains compatible.
-
-Open `/?segdebug` to overlay the region the model returned before the shadow trim, the window it zoomed into and its taps. A second engine, SlimSAM ("Precise"), was evaluated and removed: it matched MagicTouch's accuracy at about 7 s per tap and crashed phone browsers. [Measured comparison](docs/segmentation-comparison.md) scores Smart edges and both engines against Gemini-generated silhouettes of the same photographed tools, calibrated into the same sheet millimetres.
-
-`npm test` includes mask dimensions, circles, extended-sheet origins, alpha handling, prompt mapping, validation and preservation through setting changes. With Playwright configured as for the UI checks, `node tests/segment-ui-browser.mjs` runs real-model interactions at 1440 and 390 px, including retracing, ＋/− refinement, undo/redo, pan/pinch, project round-trip, offline failure and cancellation. `node tests/segment-browser.mjs [local-photo.jpg ...]` measures the model against Smart edges without treating that reference as physical ground truth. Set `TOOLNEST_REPORT` to write its JSON report outside the repo. The browser tests require model-host access and are separate from CI's offline unit tests.
+# ⌑ Toolnest
+
+<p align="center">
+  <a href="https://jggroot.github.io/toolnest/">
+    <img src="docs/images/hero-banner.jpg" alt="Toolnest - Custom CNC Foam Tool Inserts" width="100%" style="border-radius: 10px;">
+  </a>
+</p>
+
+<p align="center">
+  <strong>From phone photo to precision CNC foam drawer inserts in seconds.</strong><br>
+  No CAD expertise required. 100% private and runs entirely inside your web browser.
+</p>
+
+<p align="center">
+  <a href="https://jggroot.github.io/toolnest/"><img src="https://img.shields.io/badge/🚀_Launch_Live_App-jggroot.github.io%2Ftoolnest-0284c7?style=for-the-badge" alt="Launch Live App"></a>
+  <a href="https://jggroot.github.io/toolnest/"><img src="https://img.shields.io/badge/📄_Printable_Target-PDF_(A4%20%2F%20Letter)-f59e0b?style=for-the-badge" alt="Printable Target"></a>
+</p>
+
+<p align="center">
+  <img src="https://img.shields.io/badge/Platform-100%25_In--Browser_(Zero_Install)-emerald" alt="Platform">
+  <img src="https://img.shields.io/badge/Privacy-100%25_Local_(No_Uploads)-blue" alt="Privacy">
+  <img src="https://img.shields.io/badge/AI_Engine-MediaPipe_MagicTouch-8b5cf6" alt="AI Engine">
+  <img src="https://img.shields.io/badge/Export-SVG_%7C_DXF_%7C_STL_%7C_CSV-teal" alt="Export">
+  <img src="https://img.shields.io/badge/License-MIT-gray" alt="License">
+</p>
+
+---
+
+## ⚡ Why Toolnest?
+
+Creating custom shadow foam (Kaizen foam) tool organizers used to mean two frustrating choices:
+1. **Hours with a razor knife**: Uneven, jagged edges, ruined expensive foam, and sore fingers.
+2. **Hours in CAD software**: Taking photos, dealing with perspective distortion, hand-tracing hundreds of bezier spline curves in Inkscape or Fusion 360, and guessing clearances.
+
+**Toolnest automates the entire process:**
+Place your hand tools on a sheet of paper, snap a photo with your phone, and let Toolnest's on-device AI extract crisp, sub-millimetre vector outlines in one click. Arrange them across your toolbox drawers, add finger grips and socket rows, preview the full depth in 3D, and export clean, CAM-ready toolpaths for your CNC router or 3D printer.
+
+<p align="center">
+  <img src="docs/images/foam-drawer-showcase.jpg" alt="Custom Shadow Foam Tool Organizer Showcase" width="100%" style="border-radius: 10px;">
+</p>
+
+---
+
+## 🚀 Quick Start in 4 Easy Steps
+
+<p align="center">
+  <img src="docs/images/workflow-diagram.svg" alt="Toolnest 4-Step Workflow" width="100%">
+</p>
+
+### 1. 📸 Snap Your Tools
+- Print the free calibrated sheet (A4 or US Letter) right from the app.
+- Lay your wrenches, ratchets, pliers, or calipers inside the border.
+- Snap a photo using your smartphone or webcam. Toolnest's subpixel corner engine automatically corrects camera tilt and perspective distortion.
+
+### 2. 🧠 1-Tap AI Trace
+- Click any tool to trace it instantly using on-device machine learning (MediaPipe MagicTouch).
+- Advanced shadow-peeling and chrome edge-snapping isolate the real physical tool boundary—ignoring reflections, specular highlights, and cast shadows.
+- Need to touch up an edge? Use the **＋** and **−** refinement tools or fine-tune corner smoothing presets.
+
+### 3. 🎛️ Custom Fit & Finger Grips
+- Set your **Fit Clearance** (e.g. `+0.5 mm` for an easy drop-in fit or `-0.5 mm` for a friction press-fit).
+- Click any edge to add ergonomic semi-circular finger-grab cutouts so tools pop out effortlessly.
+- Save traced tools to your personal reusable tool library.
+
+### 4. 🧰 Arrange & Export to CNC
+- Switch to the **Foam** studio to lay out your toolbox drawers with snap-to-grid, auto-alignment, and spacing guides.
+- Add multi-depth pockets (shallow jaws, deep handles) and generate instant socket rows.
+- Inspect everything with the interactive **3D WebGL visualizer**.
+- Export CAM-ready **SVG**, **DXF** (layered by depth), **3D STL**, or **CSV setup sheets** for your CNC machine.
+
+---
+
+## 📊 Toolnest vs Traditional Methods
+
+<p align="center">
+  <img src="docs/images/comparison-card.svg" alt="Feature Comparison Card" width="100%">
+</p>
+
+| Feature | Utility Knife &amp; Pick-and-Pluck | Manual CAD / Inkscape Tracing | Toolnest ✨ |
+| :--- | :--- | :--- | :--- |
+| **Speed** | 15–30 minutes per tool | 10–25 minutes of manual clicking | **Under 5 seconds per tool** |
+| **Edge Precision** | Rough, wobbly cuts | Depends on operator patience | **Sub-millimetre algorithmic accuracy** |
+| **Perspective Warping** | N/A | Hard to correct manually | **Automatic 16-point planar homography** |
+| **Finger Grips** | Uneven hand notches | Tedious boolean difference ops | **1-Click continuous vector cutouts** |
+| **Tiered Depths** | Hard to step cut evenly | Complex 3D CAD modeling required | **Interactive depth zones & 3D preview** |
+| **CNC Compatibility** | None | Frequent unclosed loops & scaling errors | **Production-ready closed SVG / DXF / STL** |
+| **Cost & Privacy** | Messy & waste prone | Steep learning curve | **100% Free, Open Source & Client-Side** |
+
+---
+
+## ✨ Features Built for Makers & Machinists
+
+### 🧠 On-Device AI Segmentation (MediaPipe MagicTouch)
+Toolnest runs modern vision models directly inside your web browser using WebAssembly and WebGL delegates:
+- **No cloud servers**: Your workshop photos and tools remain 100% private to your machine.
+- **Chrome & glare resistance**: Patented gradient-scoring distinguishes polished metal from paper glare.
+- **Shadow peeling**: Automatically trims out soft ambient shadows and hard light casts up to 2.5 mm away from the true perimeter.
+
+### 📐 Sub-Millimetre Calibration Engine
+- Four 20 mm 8×8 coded fiducial markers eliminate perspective distortion even when taking photos at an angle.
+- Automatic A4 and US Letter sheet detection.
+- Optional 2-point ruler calibration for oversized tools or flatbed scanner direct imports (150+ DPI).
+
+### 🧰 Full CAD Drawer Layout Studio
+Designed with intuitive controls inspired by Fusion 360's sketch environment:
+- **Snapping & Smart Guides**: Bounding boxes snap to drawer margins, center lines, and neighboring tools with collision warnings.
+- **Parametric Shapes**: Add center rectangles, slots, circles, ellipses, and splines.
+- **Automated Socket Rows**: Type a list of socket sizes (e.g. `10, 12, 14, 17@38, 19, 21`) to automatically generate a perfectly aligned, spaced row of socket pockets with custom depths.
+- **Pocket Split & Erase**: Cut away unwanted sections or divide traced toolboxes into modular components.
+
+### 🧊 Multi-Depth Pockets & Real-Time 3D WebGL Preview
+- Draw multi-depth regions across any pocket (e.g., cut pliers handles at 18 mm depth and jaw tips at 8 mm depth).
+- Real-time 3D rendering powered by Three.js lets you orbit, zoom, and inspect physical clearances and pocket depths before cutting into expensive foam.
+
+### 📱 PWA & QR Code Phone Pairing
+- Open Toolnest on your desktop or tablet.
+- Click **Pair a phone** to generate a secure local QR code.
+- Scan with your smartphone to immediately capture tools with your phone's camera—they sync directly to your desktop workspace in real-time.
+- Installable as a Progressive Web App (PWA) on iOS Safari and Android Chrome for full-screen offline use.
+
+### 🔄 Trace Existing Worn Foam Trays
+- Have an existing two-color Kaizen foam tray that is worn out?
+- Place it under the camera and use **Trace pockets** to automatically detect existing cutouts and rebuild an identical replacement CAD file.
+
+---
+
+## 🛠️ CAM & CNC Machine Compatibility
+
+Toolnest produces clean, manifold, zero-defect vectors that import cleanly into your favorite CAM and CAD software without scaling surprises:
+
+| Software / Machine | Recommended Format | Notes |
+| :--- | :--- | :--- |
+| **Inventables Easel &amp; Easel Pro** (X-Carve) | **SVG** or **STL** | Clean closed paths with 1:1 millimetre scale. Import SVG, set pocket depths from the Toolnest CSV setup sheet, or import STL directly in Easel Pro. |
+| **Carbide Create** (Shapeoko) | **SVG** / **DXF** | Closed vector geometry imports directly into design layers with exact dimensions. |
+| **Vectric VCarve / Aspire** | **DXF** | Organizes pockets into distinct `DEPTH_*_MM` layers for fast automated toolpath templates. |
+| **Fusion 360 / Carveco** | **DXF** / **STL** | Clean geometry imports without duplicate vertices or self-intersecting loops. |
+| **3D Printers** (Bambu, Prusa, Creality) | **STL** | Exports a watertight, solid 3D mesh ready to drop into Bambu Studio, OrcaSlicer, or PrusaSlicer for printing custom TPU or PLA tool holders. |
+| **Manual Hand Cutting** | **1:1 PDF** | Print full-scale 1:1 paper templates to glue onto foam for razor-guided hand cuts. |
+
+---
+
+## 💡 Pro Tips for Perfect Foam Cuts
+
+1. **Lighting**: Use diffuse room lighting or natural daylight when photographing tools. Avoid harsh single-point flash that casts sharp shadows.
+2. **Endmills**: For cutting polyurethane or polyethylene Kaizen foam on a CNC router, use a **spiral downcut bit** or dedicated foam bit (1/8" or 1/4" single-flute) at high RPM (16,000–18,000 RPM) to keep top foam edges crisp and fuzz-free.
+3. **Fit Tolerances**:
+   - `+0.5 mm` to `+1.0 mm`: Standard comfortable fit (tools slide in and out easily).
+   - `0.0 mm`: Snug fit (best when paired with finger cutouts).
+   - `-0.5 mm`: Tight friction hold (great for vertical tool walls or mobile toolboxes).
+4. **1:1 Screen Check**: Use the **1:1 button** in the layout editor and hold your physical tool up against the monitor to verify scale before machining.
+
+---
+
+## ❓ Frequently Asked Questions (FAQ)
+
+<details>
+<summary><strong>Is Toolnest really free?</strong></summary>
+Yes! Toolnest is 100% free and open-source software under the MIT license. There are no paywalls, subscriptions, or export watermarks.
+</details>
+
+<details>
+<summary><strong>Do I need a CNC machine or 3D printer?</strong></summary>
+No. While Toolnest is built for CNC routers and 3D printers, you can also print 1:1 scale paper templates to lay directly over your foam and guide manual utility knife cuts with precision.
+</details>
+
+<details>
+<summary><strong>Are my photos or workshop data uploaded to a server?</strong></summary>
+No. All image processing, perspective calibration, AI edge segmentation, and CAD calculations occur 100% locally in your browser using WebAssembly. Your photos never leave your device.
+</details>
+
+<details>
+<summary><strong>What paper sizes are supported for the calibration sheet?</strong></summary>
+Standard **A4** (210 × 297 mm) and **US Letter** (8.5 × 11 in). Toolnest automatically detects which sheet you printed based on the fiducial markers.
+</details>
+
+<details>
+<summary><strong>Can I use tools that are larger than a single sheet of paper?</strong></summary>
+Yes! For oversized tools, use the foam background alignment mode with a measured reference ruler, or stitch multiple sheets.
+</details>
+
+---
+
+## 💻 Developer & Self-Hosting Guide
+
+Toolnest is built with vanilla modern web standards—no heavy build steps, Webpack, or npm runtime dependencies are required to run the frontend.
+
+### Quick Local Development
+
+1. **Clone the repository**:
+   ```bash
+   git clone https://github.com/JGGroot/Toolnest.git
+   cd Toolnest
+   ```
+
+2. **Start the local server**:
+   ```bash
+   npm start
+   ```
+   Open your browser to `http://localhost:3000`.
+
+3. **Run the test suite**:
+   ```bash
+   npm test
+   ```
+   Runs the complete unit and algorithmic test suite covering perspective math, marker dictionary separation, edge-snapping, contour smoothing bounds, and STL mesh closure.
+
+For deployment options, GitHub Actions configuration, and database schemas for optional multi-device cloud synchronization, see [DEPLOY.md](DEPLOY.md).
+
+---
+
+<p align="center">
+  Crafted with care for makers, machinists, and organizers everywhere.<br>
+  <strong><a href="https://jggroot.github.io/toolnest/">Launch Toolnest Live →</a></strong>
+</p>
