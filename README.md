@@ -36,7 +36,9 @@ Creating custom shadow foam (Kaizen foam) tool organizers used to mean two frust
 Place your hand tools on a sheet of paper, snap a photo with your phone, and let Toolnest's on-device AI extract crisp, sub-millimetre vector outlines in one click. Arrange them across your toolbox drawers, add finger grips and socket rows, preview the full depth in 3D, and export clean, CAM-ready toolpaths for your CNC router or 3D printer.
 
 <p align="center">
-  <img src="docs/images/foam-drawer-showcase.jpg" alt="Custom Shadow Foam Tool Organizer Showcase" width="100%" style="border-radius: 10px;">
+  <img src="docs/images/maintainer-toolbox-drawer.jpg" alt="Real Maintainer Tool Chest with Two-Tone CNC Cut Shadow Foam" width="100%" style="border-radius: 8px;">
+  <br>
+  <em>Real-world result: An aircraft maintainer's rollaway tool chest outfitted with custom CNC-milled dual-color shadow foam. Notice the bright contrast cutout indicating a checked-out tool—instant 5S tool control and FOD (Foreign Object Debris) prevention.</em>
 </p>
 
 ---
@@ -50,7 +52,20 @@ Place your hand tools on a sheet of paper, snap a photo with your phone, and let
 ### 1. 📸 Snap Your Tools
 - Print the free calibrated sheet (A4 or US Letter) right from the app.
 - Lay your wrenches, ratchets, pliers, or calipers inside the border.
-- Snap a photo using your smartphone or webcam. Toolnest's subpixel corner engine automatically corrects camera tilt and perspective distortion.
+- Snap a photo using your smartphone or webcam. Toolnest's subpixel corner engine automatically corrects camera tilt, imperfect angles, and lens perspective.
+
+<table width="100%">
+  <tr>
+    <td width="50%" align="center">
+      <img src="docs/images/maintainer-phone-action.jpg" alt="Maintainer photographing tools on calibration sheet with smartphone" style="border-radius: 6px; width: 100%;">
+      <br><sub><em>Point and shoot with any phone—even under harsh shop bay lights</em></sub>
+    </td>
+    <td width="50%" align="center">
+      <img src="docs/images/maintainer-phone-capture.jpg" alt="Top-down candid phone capture of well-used maintenance tools on calibration sheet" style="border-radius: 6px; width: 100%;">
+      <br><sub><em>Works with real, greasy, scuffed tools and natural workbench grit</em></sub>
+    </td>
+  </tr>
+</table>
 
 ### 2. 🧠 1-Tap AI Trace
 - Click any tool to trace it instantly using on-device machine learning (MediaPipe MagicTouch).
@@ -111,6 +126,10 @@ Designed with intuitive controls inspired by Fusion 360's sketch environment:
 ### 🧊 Multi-Depth Pockets & Real-Time 3D WebGL Preview
 - Draw multi-depth regions across any pocket (e.g., cut pliers handles at 18 mm depth and jaw tips at 8 mm depth).
 - Real-time 3D rendering powered by Three.js lets you orbit, zoom, and inspect physical clearances and pocket depths before cutting into expensive foam.
+
+<p align="center">
+  <img src="docs/images/foam-drawer-showcase.jpg" alt="Custom Shadow Foam Tool Organizer Showcase" width="100%" style="border-radius: 8px;">
+</p>
 
 ### 📱 PWA & QR Code Phone Pairing
 - Open Toolnest on your desktop or tablet.
