@@ -1,6 +1,6 @@
 // Optional cloud account (Supabase): sign-in, live-synced tool library and foams, QR phone pairing
-// and a save indicator. Signed out, nothing leaves the browser: the Supabase client is only loaded
-// once someone signs in, has a saved session or opens a pairing link.
+// and a save indicator. Designs stay local while signed out. The Supabase client is loaded
+// after choosing cloud sign-in, when restoring a session or opening a pairing link.
 import qrcode from './vendor/qrcode.mjs';
 export const SUPABASE_URL='https://ddqyjscfbvtrqmrnehhn.supabase.co',SUPABASE_KEY='sb_publishable_NW3qw6msS3_CfC0Ox0mzow_FN1jAtNx';
 // Public OAuth client id. Google's own button signs in on this site's origin, so the consent
@@ -17,7 +17,9 @@ const isPhone=()=>!matchMedia('(pointer:fine)').matches;
 
 export function createCloud({toast,modal,foam,startToolPhoto}){
  let clientPromise=null,gisPromise=null,client=null,user=null,channel=null,libraryTimer=0,drawerTimer=0,remoteTimer=0,applying=false,lastSaved=0,lastError='';
- const dirty=new Set();
+ const dirty=new Set(),activeJobs=new Set();let deleting=false;
+ async function syncJob(job){if(deleting)return;const pending=job();activeJobs.add(pending);try{return await pending;}finally{activeJobs.delete(pending);}}
+ const syncLibrary=()=>syncJob(syncLibraryImpl),pushLibrary=()=>syncJob(pushLibraryImpl),pushProject=()=>syncJob(pushProjectImpl);
  const actions=document.querySelector('.top-actions'),pill=document.createElement('button'),button=document.createElement('button');
  pill.id='syncPill';pill.className='sync-pill';button.id='cloudBtn';button.className='icon-btn cloud-btn';button.setAttribute('aria-label','Account and cloud sync');button.textContent='☁';actions?.prepend(pill,button);
  // ---- Save indicator: always says where the work is and whether the last save worked.
@@ -31,15 +33,15 @@ export function createCloud({toast,modal,foam,startToolPhoto}){
  window.addEventListener('beforeunload',e=>{if(user&&dirty.size){e.preventDefault();e.returnValue='';}});
 
  function load(){if(!clientPromise)clientPromise=new Promise((resolve,reject)=>{const make=()=>{client=globalThis.supabase.createClient(SUPABASE_URL,SUPABASE_KEY,{auth:{persistSession:true,autoRefreshToken:true,detectSessionInUrl:true,flowType:'implicit'}});client.auth.onAuthStateChange((event,session)=>setTimeout(()=>{authChanged(session);if(event==='PASSWORD_RECOVERY')newPassword();},0));resolve(client);};if(globalThis.supabase?.createClient)return make();const s=document.createElement('script');s.src=new URL('./vendor/supabase.js?v=2.117.3',import.meta.url).href;s.onload=make;s.onerror=()=>{clientPromise=null;reject(Error('Cloud sign-in could not load. Check your connection.'));};document.head.append(s);});return clientPromise;}
- async function authChanged(session){const next=session?.user||null;if(next?.id===user?.id)return;user=next;lastError='';dirty.clear();if(channel){client.removeChannel(channel);channel=null;}foam.setProjectSource(user?projectSource:null);foam.setPhotoFetcher(user?async id=>{const {data}=await client.storage.from(BUCKET).download(`${user.id}/foam/${id}`);return data||null;}:null);showState();
+ async function authChanged(session){if(deleting)return;const next=session?.user||null;if(next?.id===user?.id)return;user=next;lastError='';dirty.clear();if(channel){client.removeChannel(channel);channel=null;}foam.setProjectSource(user?projectSource:null);foam.setPhotoFetcher(user?async id=>{const {data}=await client.storage.from(BUCKET).download(`${user.id}/foam/${id}`);return data||null;}:null);showState();
   if(!user){if($('cloudBody'))render();return;}if($('modal').open&&$('cloudBody'))render();
-  await track('library',async()=>{const fresh=await syncLibrary();if(fresh.length)toast(`Your library has ${fresh.length} tool${fresh.length===1?'':'s'} from your other devices.`);});await track('project',pushProject);if(isPhone())await openRecentIfEmpty().catch(()=>{});listen();foam.refreshLibrary();}
+  await track('library',async()=>{const fresh=await syncLibrary();if(fresh.length)toast(`Your library has ${fresh.length} tool${fresh.length===1?'':'s'} from your other devices.`);});await track('project',pushProject);if(deleting)return;if(isPhone())await openRecentIfEmpty().catch(()=>{});if(deleting)return;listen();foam.refreshLibrary();}
 
  // ---- Tool library: rows keyed by tool id. A per-account snapshot of what was last synced tells
  // local edits apart from remote ones; when both changed, the local copy wins. Returns new arrivals.
  const snapKey=()=>`toolnest.cloud.library.${user.id}`;
  const readSnap=()=>{try{return JSON.parse(localStorage.getItem(snapKey())||'{}');}catch{return {};}};
- async function syncLibrary(){const {data:rows,error}=await client.from('library_tools').select('id,data,deleted');if(error)throw error;const snap=readSnap(),local=new Map(foam.getLibrary().map(t=>[t.id,t])),push=[],next=new Map(local);
+ async function syncLibraryImpl(){const {data:rows,error}=await client.from('library_tools').select('id,data,deleted');if(error)throw error;const snap=readSnap(),local=new Map(foam.getLibrary().map(t=>[t.id,t])),push=[],next=new Map(local);
   for(const row of rows){const mine=local.get(row.id),cloud=row.deleted?null:stable(row.data),changedHere=mine?stable(mine)!==snap[row.id]:row.id in snap;
    if(changedHere){if(mine)push.push(mine);else if(cloud)push.push({id:row.id,deleted:true});}else if(cloud)next.set(row.id,row.data);else next.delete(row.id);}
   const known=new Set(rows.map(r=>r.id));for(const t of local.values())if(!known.has(t.id))push.push(t);
@@ -50,8 +52,8 @@ export function createCloud({toast,modal,foam,startToolPhoto}){
  async function uploadToolPhoto(id){const done=new Set(JSON.parse(localStorage.getItem(uploadedKey())||'[]'));if(done.has('tool:'+id))return;const blob=await foam.getPhoto(id);if(!blob)return;const {error}=await client.storage.from(BUCKET).upload(`${user.id}/tool/${id}.jpg`,blob,{upsert:true,contentType:'image/jpeg'});if(error)throw error;done.add('tool:'+id);localStorage.setItem(uploadedKey(),JSON.stringify([...done].slice(-400)));}
  async function fetchToolPhotos(tools){let got=0;for(const t of tools){const id=t.photo?.id;if(typeof id!=='string'||!/^[\w-]{8,64}$/.test(id)||await foam.getPhoto(id))continue;const {data:blob}=await client.storage.from(BUCKET).download(`${user.id}/tool/${id}.jpg`);if(blob){await foam.putPhoto(id,blob);got++;}}if(got)foam.refreshLibrary();}
  async function upsertLibrary(items){if(!items.length)return;for(const t of items)if(!t.deleted&&t.photo?.id)await uploadToolPhoto(t.photo.id).catch(()=>{});const {error}=await client.from('library_tools').upsert(items.map(t=>t.deleted?{id:t.id,name:'Deleted',data:{},deleted:true}:{id:t.id,name:t.name,data:t,deleted:false}),{onConflict:'user_id,id'});if(error)throw error;}
- async function pushLibrary(){if(!user)return;const snap=readSnap(),now=foam.getLibrary(),items=now.filter(t=>stable(t)!==snap[t.id]),ids=new Set(now.map(t=>t.id));for(const id of Object.keys(snap))if(!ids.has(id))items.push({id,deleted:true});await upsertLibrary(items);for(const t of now)if(t.photo?.id)await uploadToolPhoto(t.photo.id).catch(()=>{});const fresh={};for(const t of now)fresh[t.id]=stable(t);localStorage.setItem(snapKey(),JSON.stringify(fresh));}
- foam.onLibraryChange(()=>{if(!user||applying)return;dirty.add('library');showState();clearTimeout(libraryTimer);libraryTimer=setTimeout(()=>track('library',pushLibrary),800);});
+ async function pushLibraryImpl(){if(!user)return;const snap=readSnap(),now=foam.getLibrary(),items=now.filter(t=>stable(t)!==snap[t.id]),ids=new Set(now.map(t=>t.id));for(const id of Object.keys(snap))if(!ids.has(id))items.push({id,deleted:true});await upsertLibrary(items);for(const t of now)if(t.photo?.id)await uploadToolPhoto(t.photo.id).catch(()=>{});const fresh={};for(const t of now)fresh[t.id]=stable(t);localStorage.setItem(snapKey(),JSON.stringify(fresh));}
+ foam.onLibraryChange(()=>{if(!user||applying||deleting)return;dirty.add('library');showState();clearTimeout(libraryTimer);libraryTimer=setTimeout(()=>track('library',pushLibrary),800);});
 
  // ---- Projects: each foam is a drawers row and the project row keeps their order. Every foam whose
  // content differs from what was last pushed is saved, so switching foams never drops an edit.
@@ -64,11 +66,11 @@ export function createCloud({toast,modal,foam,startToolPhoto}){
  async function uploadPhoto(f){const photo=f.foam.photo;if(!photo)return null;const path=`${user.id}/foam/${photo.id}`,done=new Set(JSON.parse(localStorage.getItem(uploadedKey())||'[]'));if(done.has(photo.id)&&done.has(photo.id+'.thumb')){await uploadSource(photo);return path;}const blob=await foam.getPhoto(photo.id);if(!blob)return done.has(photo.id)?path:null;
   const store=async(target,body)=>{const {error}=await client.storage.from(BUCKET).upload(target,body,{upsert:true,contentType:body.type||'image/jpeg'});if(error)throw error;};if(!done.has(photo.id)){await store(path,blob);done.add(photo.id);}await store(path+'.thumb.jpg',await thumbnail(blob));done.add(photo.id+'.thumb');localStorage.setItem(uploadedKey(),JSON.stringify([...done].slice(-400)));await uploadSource(photo);return path;}
  async function uploadSource(photo){if(!photo.sourceId)return;const done=new Set(JSON.parse(localStorage.getItem(uploadedKey())||'[]'));if(done.has(photo.sourceId))return;const blob=await foam.getPhoto(photo.sourceId);if(!blob)return;const {error}=await client.storage.from(BUCKET).upload(`${user.id}/foam/${photo.sourceId}`,blob,{upsert:true,contentType:blob.type||'image/jpeg'});if(error)throw error;done.add(photo.sourceId);localStorage.setItem(uploadedKey(),JSON.stringify([...done].slice(-400)));}
- async function pushProject(){if(!user)return;const p=foam.getProject();if(!p.foams.some(hasContent)&&p.name==='Untitled project')return;const pushed=readPushed(),ids=p.foams.map(f=>f.id);
+ async function pushProjectImpl(){if(!user)return;const p=foam.getProject();if(!p.foams.some(hasContent)&&p.name==='Untitled project')return;const pushed=readPushed(),ids=p.foams.map(f=>f.id);
   for(const f of p.foams){const h=stable(f);if(pushed[f.id]===h)continue;const {error}=await client.from('drawers').upsert({id:f.id,name:f.name,data:f,photo_path:await uploadPhoto(f),project_id:p.id,deleted:false},{onConflict:'user_id,id'});if(error)throw error;pushed[f.id]=h;writePushed(pushed);}
   const key='project:'+p.id,before=pushed[key]?JSON.parse(pushed[key]).foams:[],gone=before.filter(id=>!ids.includes(id));if(gone.length){const {error}=await client.from('drawers').update({deleted:true}).in('id',gone);if(error)throw error;}
   const h=stable({name:p.name,foams:ids});if(pushed[key]!==h){const {error}=await client.from('projects').upsert({id:p.id,name:p.name,data:{foams:ids},deleted:false},{onConflict:'user_id,id'});if(error)throw error;pushed[key]=h;writePushed(pushed);}}
- foam.onChange(()=>{if(!user||applying)return;dirty.add('project');showState();clearTimeout(drawerTimer);drawerTimer=setTimeout(()=>track('project',pushProject),2000);});
+ foam.onChange(()=>{if(!user||applying||deleting)return;dirty.add('project');showState();clearTimeout(drawerTimer);drawerTimer=setTimeout(()=>track('project',pushProject),2000);});
  // Fetch a project and its foams, in the project's order.
  async function fetchProject(id){const [{data:row,error},{data:foams,error:foamError}]=await Promise.all([client.from('projects').select('id,name,data').eq('id',id).single(),client.from('drawers').select('id,name,data,photo_path').eq('project_id',id).eq('deleted',false)]);if(error||foamError)throw error||foamError;const byId=new Map(foams.map(d=>[d.id,d])),order=[...(row.data?.foams||[]).filter(i=>byId.has(i)),...foams.map(d=>d.id).filter(i=>!(row.data?.foams||[]).includes(i))];return {row,foams:order.map(i=>byId.get(i))};}
  async function fetchPhotos(rows){for(const d of rows){const photo=d.data.foam.photo;if(!photo||!d.photo_path||await foam.getPhoto(photo.id))continue;const {data:blob}=await client.storage.from(BUCKET).download(d.photo_path);if(blob){await foam.putPhoto(photo.id,blob);foam.refreshStrip();}}}
@@ -115,25 +117,54 @@ export function createCloud({toast,modal,foam,startToolPhoto}){
 
  // ---- Account dialog
  function newPassword(){modal('Choose a new password','TOOLNEST CLOUD','<label class="foam-field">New password<input id="cloudNewPassword" type="password" autocomplete="new-password" minlength="8"></label><button id="cloudSetPassword" class="primary full">Save password</button><p id="cloudResetStatus" class="cloud-note"></p>');$('cloudSetPassword').onclick=async()=>{const password=$('cloudNewPassword').value;if(password.length<8)return $('cloudResetStatus').textContent='Use at least 8 characters.';const {error}=await client.auth.updateUser({password});if(error)return $('cloudResetStatus').textContent=error.message;$('modal').close();toast('Password changed. You are signed in.');};}
- function open(){modal('Account','TOOLNEST CLOUD','<div id="cloudBody"></div>');render();}
+ function open(){if(deleting)return toast('Reload Toolnest before signing in again.');modal('Account','TOOLNEST CLOUD','<div id="cloudBody"></div>');render();}
  function render(){const body=$('cloudBody');if(!body)return;
-  if(!user){body.innerHTML=`<div id="cloudGoogle" class="cloud-google"></div><details class="ui-disclosure"><summary>More sign-in options</summary><button id="cloudGoogleRedirect" class="text-btn full small">Continue with Google</button></details><div class="cloud-or">or</div><label class="foam-field">Email<input id="cloudEmail" type="email" autocomplete="username email" inputmode="email" placeholder="you@example.com"></label><label class="foam-field">Password<input id="cloudPassword" type="password" autocomplete="current-password" minlength="8"></label><div class="foam-actions"><button id="cloudSignIn" class="primary">Sign in</button><button id="cloudSignUp" class="secondary">Create account</button></div><div class="cloud-links"><button id="cloudForgot" class="text-btn">Forgot password?</button><button id="cloudSend" class="text-btn">Email a sign-in link</button></div><p id="cloudStatus" class="cloud-note"></p>`;
+  if(!user){body.innerHTML=`<p class="cloud-note">Signing in automatically syncs your current tool library, projects and saved photos to Supabase. AI tracing runs on this device. <a href="privacy.html">Privacy &amp; data</a> · <a href="terms.html">Use &amp; cutting safety</a></p><button id="cloudChooseGoogle" class="secondary full">Use Google sign-in</button><div id="cloudGoogle" class="cloud-google"></div><details class="ui-disclosure"><summary>More sign-in options</summary><button id="cloudGoogleRedirect" class="text-btn full small">Continue with Google</button></details><div class="cloud-or">or</div><label class="foam-field">Email<input id="cloudEmail" type="email" autocomplete="username email" inputmode="email" placeholder="you@example.com"></label><label class="foam-field">Password<input id="cloudPassword" type="password" autocomplete="current-password" minlength="8"></label><div class="foam-actions"><button id="cloudSignIn" class="primary">Sign in</button><button id="cloudSignUp" class="secondary">Create account</button></div><div class="cloud-links"><button id="cloudForgot" class="text-btn">Forgot password?</button><button id="cloudSend" class="text-btn">Email a sign-in link</button></div><p id="cloudStatus" class="cloud-note"></p>`;
    const say=text=>{if($('cloudStatus'))$('cloudStatus').textContent=text;},email=()=>$('cloudEmail').value.trim(),password=()=>$('cloudPassword').value,validEmail=()=>/^\S+@\S+\.\S+$/.test(email())||(say('Enter your email address.'),false);
    // Every button loads the client first, then reports Supabase's own error message.
    const run=(id,action)=>{$(id).onclick=async()=>{const b=$(id);b.disabled=true;try{await load();await action();}catch(e){say(e.message);}finally{if($(id))b.disabled=false;}};};
-   googleButton($('cloudGoogle'),say);run('cloudGoogleRedirect',googleRedirect);
+   $('cloudChooseGoogle').onclick=()=>{googleButton($('cloudGoogle'),say);$('cloudChooseGoogle').hidden=true;};run('cloudGoogleRedirect',googleRedirect);
    run('cloudSignIn',async()=>{if(!validEmail())return;const {error}=await client.auth.signInWithPassword({email:email(),password:password()});if(error)throw error;});
    run('cloudSignUp',async()=>{if(!validEmail())return;if(password().length<8)return say('Choose a password of at least 8 characters.');const {data,error}=await client.auth.signUp({email:email(),password:password(),options:{emailRedirectTo:appURL()}});if(error)throw error;if(!data.session)say(data.user?.identities?.length===0?'That email already has an account. Sign in, or use Forgot password.':`Check ${email()} to confirm your account, then sign in.`);});
    run('cloudForgot',async()=>{if(!validEmail())return;const {error}=await client.auth.resetPasswordForEmail(email(),{redirectTo:appURL()});if(error)throw error;say(`If ${email()} has an account, a reset link is on its way.`);});
    run('cloudSend',async()=>{if(!validEmail())return;const {error}=await client.auth.signInWithOtp({email:email(),options:{emailRedirectTo:appURL()}});if(error)throw error;say(`Check ${email()} for a sign-in link. It signs in whichever browser opens it.`);});
    $('cloudPassword').onkeydown=e=>{if(e.key==='Enter')$('cloudSignIn').click();};return;}
   // Signed in: phones get the two capture actions up front; computers get pairing.
-  body.innerHTML=`<p class="cloud-note">Signed in as <b>${escape(user.email)}</b><br><span id="cloudStatus"></span></p><p class="cloud-note">Open project: <b>${escape(foam.getProject().name)}</b> · <button id="cloudProject" class="text-btn">Change</button></p>${isPhone()?'<div class="cloud-capture"><button id="cloudToolPhoto" class="primary full">📷 Photograph tools</button></div>':'<button id="cloudPair" class="primary full">Pair a phone (QR code)</button>'}<button id="cloudLibrary" class="secondary full">Open library</button><button id="cloudSignOut" class="text-btn full">Sign out</button>`;showState();
+  body.innerHTML=`<p class="cloud-note">Signed in as <b>${escape(user.email)}</b><br><span id="cloudStatus"></span></p><p class="cloud-note">Open project: <b>${escape(foam.getProject().name)}</b> · <button id="cloudProject" class="text-btn">Change</button></p>${isPhone()?'<div class="cloud-capture"><button id="cloudToolPhoto" class="primary full">📷 Photograph tools</button></div>':'<button id="cloudPair" class="primary full">Pair a phone (QR code)</button>'}<button id="cloudLibrary" class="secondary full">Open library</button><button id="cloudSignOut" class="text-btn full">Sign out</button><p class="cloud-note"><a href="privacy.html">Privacy &amp; device data controls</a> · <a href="terms.html">Use &amp; cutting safety</a></p><button id="cloudDelete" class="text-btn full danger">Delete cloud account &amp; data</button>`;showState();
   if($('cloudPair'))$('cloudPair').onclick=showPairing;if($('cloudToolPhoto'))$('cloudToolPhoto').onclick=()=>{$('modal').close();startToolPhoto();};
   $('cloudLibrary').onclick=()=>{$('modal').close();foam.showLibrary('projects');};$('cloudProject').onclick=()=>{$('modal').close();foam.showLibrary('projects');};
+  $('cloudDelete').onclick=confirmDeletion;
   $('cloudSignOut').onclick=async()=>{if(dirty.size)await flush();await client.auth.signOut();toast('Signed out. Your library and open foam stay on this device.');};}
 
- button.onclick=async()=>{open();if(!client&&localStorage.getItem(SESSION_KEY))await load().catch(e=>toast(e.message));};
+ async function confirmDeletion(){
+  modal('Delete cloud account & data','PERMANENT DELETION','<p>This permanently removes your Toolnest cloud account, synced projects, library and uploaded photos. Local copies and downloaded backups remain. Close Toolnest on your other devices first. Export any projects and library backups you want to keep.</p><p>Provider backups and operational logs may persist under their retention policies. This cannot be undone.</p><label class="foam-field">Type DELETE MY ACCOUNT<input id="deleteConfirmation" autocomplete="off" spellcheck="false"></label><button id="deleteAccountNow" class="secondary full danger" disabled>Delete cloud account &amp; data</button><p id="deleteAccountStatus" class="cloud-note" role="status" aria-live="polite"></p>');
+  const input=$('deleteConfirmation'),button=$('deleteAccountNow'),status=$('deleteAccountStatus');
+  input.oninput=()=>{button.disabled=input.value!=='DELETE MY ACCOUNT';};
+  button.onclick=async()=>{
+   if(input.value!=='DELETE MY ACCOUNT')return;
+   button.disabled=true;input.disabled=true;status.textContent='Deleting cloud account…';
+   // Stop new uploads and drain in-flight writes before sending the deletion request.
+   deleting=true;clearTimeout(libraryTimer);clearTimeout(drawerTimer);clearTimeout(remoteTimer);clearTimeout(projectTimer);
+   await Promise.allSettled([...activeJobs]);
+   user=null;dirty.clear();
+   if(channel){await client.removeChannel(channel);channel=null;}
+   try{
+    const {data,error}=await client.functions.invoke('delete-account',{body:{confirmation:'DELETE MY ACCOUNT'}});
+    if(error||data?.deleted!==true)throw Error('Cloud deletion was not confirmed. The deletion service may be unavailable. Retry or contact the maintainer.');
+    await client.auth.signOut({scope:'local'});
+    for(const key of Object.keys(localStorage))if(key.startsWith('toolnest.cloud.')||key===SESSION_KEY)localStorage.removeItem(key);
+    status.textContent='Cloud account and data deleted. Clear device data from Privacy & data if you also want local copies removed.';
+    foam.setProjectSource(null);foam.setPhotoFetcher(null);showState();
+   }catch(e){
+    // Stay signed out to avoid re-uploading local copies after a partial erasure.
+    await client.auth.signOut({scope:'local'}).catch(()=>{});
+    localStorage.removeItem(SESSION_KEY);foam.setProjectSource(null);foam.setPhotoFetcher(null);showState();
+    status.textContent=e.message+' Some cloud data may already have been removed. Sign in again to retry; local data remains on this device.';
+   }
+  };
+ }
+
+ button.onclick=async()=>{if(deleting)return toast('Reload Toolnest before signing in again.');open();if(!client&&localStorage.getItem(SESSION_KEY))await load().catch(e=>toast(e.message));};
  window.addEventListener('focus',()=>{if(user&&!dirty.has('library'))syncLibrary().catch(()=>{});});
  // Start the client only when there is a session, an email sign-in callback or a pairing link.
  const pair=/^#pair=([0-9a-f-]{36}\.[A-Za-z0-9_-]{20,100})$/.exec(location.hash);
