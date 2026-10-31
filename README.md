@@ -8,7 +8,7 @@
 
 <p align="center">
   <strong>From phone photo to precision CNC foam drawer inserts in seconds.</strong><br>
-  No CAD expertise required. 100% private and runs entirely inside your web browser.
+  No CAD expertise required. Photo tracing runs in your browser, with optional cloud sync.
 </p>
 
 <p align="center">
@@ -18,7 +18,7 @@
 
 <p align="center">
   <img src="https://img.shields.io/badge/Platform-100%25_In--Browser_(Zero_Install)-emerald" alt="Platform">
-  <img src="https://img.shields.io/badge/Privacy-100%25_Local_(No_Uploads)-blue" alt="Privacy">
+  <img src="https://img.shields.io/badge/Privacy-Local_Tracing_Optional_Cloud-blue" alt="Privacy">
   <img src="https://img.shields.io/badge/AI_Engine-MediaPipe_MagicTouch-8b5cf6" alt="AI Engine">
   <img src="https://img.shields.io/badge/Export-SVG_%7C_DXF_%7C_STL_%7C_CSV-teal" alt="Export">
   <img src="https://img.shields.io/badge/License-MIT-gray" alt="License">
@@ -107,8 +107,8 @@ Place your hand tools on a sheet of paper, snap a photo with your phone, and let
 
 ### 🧠 On-Device AI Segmentation (MediaPipe MagicTouch)
 Toolnest runs modern vision models directly inside your web browser using WebAssembly and WebGL delegates:
-- **No cloud servers**: Your workshop photos and tools remain 100% private to your machine.
-- **Chrome & glare resistance**: Patented gradient-scoring distinguishes polished metal from paper glare.
+- **Local tracing, optional cloud sync**: Image processing runs on your device. Signing in automatically uploads your library, projects and saved photos to Supabase. See [Privacy & data](dist/privacy.html).
+- **Chrome & glare resistance**: Gradient scoring distinguishes polished metal from paper glare.
 - **Shadow peeling**: Automatically trims out soft ambient shadows and hard light casts up to 2.5 mm away from the true perimeter.
 
 ### 📐 Sub-Millimetre Calibration Engine
@@ -133,7 +133,7 @@ Designed with intuitive controls inspired by Fusion 360's sketch environment:
 
 ### 📱 PWA & QR Code Phone Pairing
 - Open Toolnest on your desktop or tablet.
-- Click **Pair a phone** to generate a secure local QR code.
+- Click **Pair a phone** to generate a one-use cloud account pairing QR code.
 - Scan with your smartphone to immediately capture tools with your phone's camera—they sync directly to your desktop workspace in real-time.
 - Installable as a Progressive Web App (PWA) on iOS Safari and Android Chrome for full-screen offline use.
 
@@ -184,7 +184,7 @@ No. While Toolnest is built for CNC routers and 3D printers, you can also print 
 
 <details>
 <summary><strong>Are my photos or workshop data uploaded to a server?</strong></summary>
-No. All image processing, perspective calibration, AI edge segmentation, and CAD calculations occur 100% locally in your browser using WebAssembly. Your photos never leave your device.
+Image processing, calibration, AI segmentation and CAD calculations run locally. If you sign in, Toolnest automatically syncs your library, projects and saved tool/foam photos to Supabase. AI model downloads contact jsDelivr and Google storage. See [Privacy & data](dist/privacy.html) for providers, retention and deletion controls.
 </details>
 
 <details>
@@ -231,3 +231,7 @@ For deployment options, GitHub Actions configuration, and database schemas for o
   Crafted with care for makers, machinists, and organizers everywhere.<br>
   <strong><a href="https://jggroot.github.io/toolnest/">Launch Toolnest Live →</a></strong>
 </p>
+
+## Privacy and data controls
+
+The app links to [Privacy & data](dist/privacy.html) and [Use & cutting safety](dist/terms.html). Device erasure removes only Toolnest browser storage. Cloud account deletion requires the `delete-account` Supabase function; see [deployment instructions](DEPLOY.md#account-deletion-service). These notices describe the code and do not certify legal compliance.

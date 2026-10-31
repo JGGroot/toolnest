@@ -28,3 +28,19 @@ Run `npm start`, then open http://localhost:3000. Run `npm test` before committi
 The photo/layout browser check accepts `TOOLNEST_URL` to test a repository subdirectory or deployed URL and `TOOLNEST_VIEWPORT` to limit the run to 390, 820 or 1440 CSS pixels. For example: `TOOLNEST_URL=http://localhost:3000/toolnest/ TOOLNEST_VIEWPORT=390 node tests/stock-photo-browser.mjs`. Use a test browser profile; the check creates synthetic projects, downloads exports and writes browser storage.
 
 The GitHub source repository excludes old hosting identity, credentials, user photos, saved projects and local storage. Preserve the license notices in `dist/vendor/` and `dist/fonts/`.
+
+## Account deletion service
+
+Deploy the `delete-account` function alongside the static privacy update:
+
+```sh
+supabase functions deploy delete-account
+```
+
+Use the same Supabase project as `dist/cloud.js`. The function validates the caller's bearer token with Auth, derives the user id on the server, deletes that user's storage objects through the Storage API, then deletes the Auth user. Existing foreign keys cascade deletion to projects, drawers, tool library, captures and pairings. It uses Supabase's server-side service-role/secret binding; never put that key in the frontend. Keep JWT verification enabled where compatible with the project's signing keys; the function also verifies the token itself.
+
+The deletion UI is explicitly destructive and requires typing `DELETE MY ACCOUNT`. It stops new sync jobs and awaits active ones on this device. Users must close other devices before deletion; downloaded files and local copies are separate. Provider backups/logs follow provider policies. A failed or missing function must show an error, never a success message. Storage removal can partly complete before a failure; retry is supported.
+
+Before release, use a disposable account to verify storage with more than one folder, synced records, account removal and a second account's isolation. Verify a signed-out caller gets 401, foreign origins get 403, and the private bucket and RLS policies are applied in production. The checked-in migrations specify these protections; source review cannot verify live settings.
+
+The notices need an operator contact channel and jurisdiction-specific review before a wider public launch. They deliberately avoid inventing legal deadlines, retention guarantees or blanket compliance claims.
